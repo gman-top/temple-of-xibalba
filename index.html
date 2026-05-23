@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Temple of Xibalba</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="stage-wrap">
+    <div id="stage">
+      <img class="bg" src="assets/bg.png" alt="" />
+
+      <img class="logo" src="assets/logo.png" alt="Temple of Xibalba" />
+
+      <img class="left-asset" src="assets/left-asset.png" alt="" />
+
+      <button class="btn-buy-bonus" id="btnBuyBonus" type="button" aria-label="Buy Bonus">
+        <img src="assets/buy-bonus-button.png" alt="" />
+      </button>
+
+      <div class="buy-bonus-amount">
+        <span class="label">FROM</span>
+        <span class="value">1,55 ETH</span>
+      </div>
+
+      <button class="btn-wildspin" id="btnWildSpin" type="button" aria-pressed="false" aria-label="Wild Spin">
+        <img class="wildspin-off" src="assets/wildspin-button-off.png" alt="" />
+        <img class="wildspin-on" src="assets/wildspin-button-on.png" alt="" />
+      </button>
+      <div class="wildspin-amount">15.00 ETH - wild spin amount</div>
+
+      <img class="image-16" src="assets/image 16.png" alt="" />
+
+      <img class="slot-frame" src="assets/slot-frame.png" alt="" />
+
+      <div class="reels" id="reels" aria-label="Slot reels"></div>
+
+      <img class="fire-left" src="assets/fire-left.png" alt="" />
+      <img class="fire-right" src="assets/fire-right.png" alt="" />
+
+      <img class="bottom" src="assets/bottom.png" alt="" />
+
+      <button class="btn-fastfwd" id="btnFastFwd" type="button" aria-label="Fast forward">
+        <img src="assets/button-fastfwd.png" alt="" />
+      </button>
+
+      <button class="btn-spin" id="btnSpin" type="button" aria-label="Spin">
+        <img src="assets/spin-button.png" alt="" />
+      </button>
+
+      <button class="btn-autoplay" id="btnAutoplay" type="button" aria-label="Autoplay">
+        <img src="assets/button-autoplay.png" alt="" />
+      </button>
+
+      <div class="max-win">MAX WIN IS 10.000X BET</div>
+
+      <div class="hud">
+        <div class="hud-cell">
+          <span class="hud-label">BALANCE</span>
+          <span class="hud-value" id="hudBalance">100.00 ETH</span>
+        </div>
+        <div class="hud-cell">
+          <span class="hud-label">BET</span>
+          <div class="bet-row">
+            <button class="bet-btn" id="betDown" type="button" aria-label="Decrease bet">−</button>
+            <span class="hud-value" id="hudBet">1.00</span>
+            <button class="bet-btn" id="betUp" type="button" aria-label="Increase bet">+</button>
+          </div>
+        </div>
+        <div class="hud-cell">
+          <span class="hud-label">WIN</span>
+          <span class="hud-value" id="hudWin">0.00 ETH</span>
+        </div>
+      </div>
+
+      <div class="win-banner" id="winBanner" aria-hidden="true">
+        <span id="winBannerText">BIG WIN</span>
+      </div>
+    </div>
+  </div>
+  <script src="game.js"></script>
+</body>
+</html>
