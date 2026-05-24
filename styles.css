@@ -88,27 +88,48 @@ html, body {
   pointer-events: none;
 }
 
-/* Reel grid: 5 cols x 7 rows of 97.16px cells, starting at (709, 106) inside the frame */
+/* Reel grid: 5 columns, each is a clip window with a sliding track of 7
+   visible cells. During spin, extra preroll cells get prepended above the
+   visible area and the track is translated down to scroll through them. */
 .reels {
   position: absolute;
   left: 709px;
   top: 106px;
-  width: 502px;     /* 5 * 100 + 2 gap left? matches Figma 501.78 */
-  height: 681px;    /* 7 * 97.16 + spacing */
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  grid-template-rows: repeat(7, 1fr);
+  width: 502px;
+  height: 681px;
+  display: flex;
   gap: 0;
   z-index: 7;
-  perspective: 800px;
+}
+
+.reel-col {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+}
+
+.reel-track {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  will-change: transform;
 }
 
 .cell {
   position: relative;
+  flex: 0 0 97.286px; /* 681 / 7 ≈ 97.28px per cell */
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
+}
+
+.cell.preroll {
+  /* same visual as a regular cell but doesn't participate in clicks/state */
+  pointer-events: none;
 }
 
 .symbol {
@@ -121,37 +142,58 @@ html, body {
   filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
 }
 
-/* Spin: per-cell symbol is swapped rapidly from JS; CSS just adds a motion blur
-   so the swaps read as a moving reel rather than a flickering image. */
-.cell.spinning .symbol {
-  filter: blur(0.5px) drop-shadow(0 4px 6px rgba(0,0,0,0.5));
-  animation: reelBlur 0.18s linear infinite;
+/* Strip ease used when slowing the track down to its final position */
+.reel-track.spinning {
+  transition: transform 0.85s cubic-bezier(0.22, 0.85, 0.25, 1);
+}
+.reel-track.spinning .symbol {
+  filter: blur(1px) drop-shadow(0 4px 6px rgba(0,0,0,0.5));
 }
 
-@keyframes reelBlur {
-  0%   { transform: translateY(-12%); }
-  50%  { transform: translateY(0); }
-  100% { transform: translateY(12%); }
+/* Pre-explosion: cluster cells get a lavender background + the symbols inside
+   shake & crack-flicker. This builds anticipation before the actual explosion. */
+.cell.in-cluster {
+  background: rgba(180, 130, 240, 0.32);
+  box-shadow:
+    inset 0 0 0 1.5px rgba(220, 170, 255, 0.6),
+    inset 0 0 16px rgba(180, 130, 240, 0.3);
+  animation: clusterPulse 0.45s ease-in-out;
+}
+.cell.in-cluster .symbol {
+  animation: crackShake 0.45s ease-in-out;
+}
+@keyframes clusterPulse {
+  0%, 100% { box-shadow: inset 0 0 0 1.5px rgba(220, 170, 255, 0.6), inset 0 0 16px rgba(180, 130, 240, 0.3); }
+  50%      { box-shadow: inset 0 0 0 2px   rgba(255, 220, 100, 0.9), inset 0 0 22px rgba(255, 200, 80, 0.55); }
+}
+@keyframes crackShake {
+  0%   { transform: translate(0,0)   rotate(0deg);   filter: brightness(1) contrast(1) saturate(1); }
+  20%  { transform: translate(-1px,1px) rotate(-1deg); filter: brightness(1.2) contrast(1.4) saturate(1.5); }
+  40%  { transform: translate(1px,-1px) rotate(1deg);  filter: brightness(1.5) contrast(1.6) saturate(1.8); }
+  60%  { transform: translate(-1px,1px) rotate(-1deg); filter: brightness(1.3) contrast(1.5) saturate(1.6); }
+  80%  { transform: translate(1px,-1px) rotate(0.5deg);filter: brightness(1.6) contrast(1.7) saturate(2);   }
+  100% { transform: translate(0,0)   rotate(0deg);   filter: brightness(1.8) contrast(1.8) saturate(2);   }
 }
 
+/* Actual explosion: scale up + fade out with bright burst */
 .cell.matched .symbol {
-  animation: matchedPulse 0.55s ease-out forwards;
+  animation: matchedPulse 0.42s cubic-bezier(0.3, 0, 0.5, 1) forwards;
 }
-
 @keyframes matchedPulse {
-  0%   { transform: scale(1); filter: drop-shadow(0 0 0 rgba(255,210,90,0)) brightness(1); }
-  35%  { transform: scale(1.2); filter: drop-shadow(0 0 18px rgba(255,210,90,0.95)) brightness(1.6); }
-  100% { transform: scale(0); opacity: 0; filter: drop-shadow(0 0 30px rgba(255,210,90,0.9)) brightness(2); }
+  0%   { transform: scale(1.05);  opacity: 1; filter: drop-shadow(0 0 12px rgba(255,210,90,0.9)) brightness(1.8); }
+  60%  { transform: scale(1.45);  opacity: 0.9; filter: drop-shadow(0 0 24px rgba(255,210,90,1))   brightness(2.2); }
+  100% { transform: scale(0.2);   opacity: 0; filter: drop-shadow(0 0 36px rgba(255,210,90,0.9)) brightness(2.4); }
 }
 
 .cell.dropping .symbol {
-  animation: dropIn 0.32s cubic-bezier(.4,1.6,.5,1);
+  animation: dropIn 0.36s cubic-bezier(0.34, 1.56, 0.4, 1);
 }
 
 @keyframes dropIn {
-  0%   { transform: translateY(-220%); opacity: 0; }
-  70%  { transform: translateY(8%); opacity: 1; }
-  100% { transform: translateY(0); opacity: 1; }
+  0%   { transform: translateY(-180%) scale(0.85); opacity: 0; }
+  60%  { transform: translateY(8%) scale(1.04);    opacity: 1; }
+  85%  { transform: translateY(-3%) scale(0.98);   opacity: 1; }
+  100% { transform: translateY(0) scale(1);        opacity: 1; }
 }
 
 /* Buttons */
@@ -181,6 +223,13 @@ button:active img {
   width: 201px;
   height: 67px;
   z-index: 8;
+  transition: filter 0.18s ease, opacity 0.18s ease;
+}
+.btn-buy-bonus[aria-disabled="true"],
+.btn-wildspin[aria-disabled="true"] {
+  filter: grayscale(0.7) brightness(0.6);
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .buy-bonus-amount {
@@ -214,6 +263,7 @@ button:active img {
   left: 120px;
   top: 630px;
   width: 200px;
+  transition: filter 0.18s ease, opacity 0.18s ease;
   height: 73px;
   z-index: 8;
 }
@@ -437,3 +487,945 @@ button:active img {
   0%   { transform: translate(0,0) scale(1); opacity: 1; }
   100% { transform: translate(var(--dx,0), var(--dy,0)) scale(0.2); opacity: 0; }
 }
+
+/* ============================================================
+   Cell overlays: multiplier badge + special-symbol badge
+   ============================================================ */
+
+/* Cells with active cell multipliers get a YELLOW/GOLD tint, matching the
+   BGaming Aztec Clusters reference. Lavender is used ONLY during a cluster's
+   "in-cluster" pop phase (see .cell.in-cluster below). */
+.cell.has-mult {
+  background: rgba(255, 200, 80, 0.22);
+  box-shadow: inset 0 0 0 1.5px rgba(255, 220, 120, 0.5);
+}
+.cell.has-mult-high {
+  background: rgba(255, 200, 60, 0.38);
+  box-shadow:
+    inset 0 0 0 1.5px rgba(255, 220, 100, 0.7),
+    inset 0 0 18px rgba(255, 180, 40, 0.35);
+}
+
+.cell .multiplier {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  font-weight: 900;
+  color: #ffae00;
+  text-shadow:
+    0 0 5px rgba(0,0,0,0.95),
+    0 2px 3px rgba(0,0,0,0.95),
+    0 0 10px rgba(255,150,0,0.5);
+  letter-spacing: -0.04em;
+  pointer-events: none;
+  animation: multPop 0.42s cubic-bezier(.3,1.6,.5,1);
+}
+.cell .multiplier.big {
+  font-size: 30px;
+  color: #ffe066;
+}
+
+/* Empty cells that retain just a multiplier marker render as a GOLD STEPPED
+   AZTEC PYRAMID (matching the ×60 / ×80 / ×100 visuals in the reference). */
+.cell.mult-only .symbol { display: none; }
+.cell.mult-only .multiplier {
+  inset: 6%;
+  background:
+    linear-gradient(180deg,
+      #ffe48a 0%,
+      #f5b73d 30%,
+      #d4961f 60%,
+      #a26d18 100%);
+  /* Stepped Aztec pyramid shape (ziggurat) */
+  clip-path: polygon(
+    8% 100%, 92% 100%,
+    92% 82%, 84% 82%,
+    84% 62%, 76% 62%,
+    76% 40%, 66% 40%,
+    66% 18%, 34% 18%,
+    34% 40%, 24% 40%,
+    24% 62%, 16% 62%,
+    16% 82%,  8% 82%
+  );
+  color: #2a1500;
+  border: 0;
+  border-radius: 0;
+  font-size: 22px;
+  text-shadow: 0 1px 1px rgba(255,255,200,0.55);
+  box-shadow: none;
+  filter: drop-shadow(0 0 14px rgba(255,200,80,0.85));
+}
+@keyframes multPop {
+  from { transform: scale(0); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+
+.cell.scatter .symbol {
+  filter: drop-shadow(0 0 12px rgba(255,200,80,0.95)) drop-shadow(0 0 20px rgba(255,140,0,0.7));
+  animation: scatterPulse 1.4s ease-in-out infinite alternate;
+}
+@keyframes scatterPulse {
+  from { transform: scale(1); }
+  to   { transform: scale(1.08); }
+}
+
+/* Synthetic special-symbol badges (wild/booster/destroyer) — no asset images */
+.cell .badge {
+  position: absolute;
+  inset: 6%;
+  z-index: 7;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  border-radius: 14px;
+  font-weight: 900;
+  text-align: center;
+  pointer-events: none;
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.6));
+}
+/* Wild = stepped Aztec pyramid, gold, with the ×N multiplier prominently
+   displayed in the middle. Replaces the previous round medallion. */
+.cell.wild .badge {
+  display: flex;
+  inset: 6%;
+  border-radius: 0;
+  border: 0;
+  background:
+    linear-gradient(180deg,
+      #ffe48a 0%,
+      #f5b73d 30%,
+      #d4961f 60%,
+      #a26d18 100%);
+  clip-path: polygon(
+    8% 100%, 92% 100%,
+    92% 82%, 84% 82%,
+    84% 62%, 76% 62%,
+    76% 40%, 66% 40%,
+    66% 18%, 34% 18%,
+    34% 40%, 24% 40%,
+    24% 62%, 16% 62%,
+    16% 82%,  8% 82%
+  );
+  color: #2a1500;
+  box-shadow: none;
+  filter: drop-shadow(0 0 16px rgba(255,200,80,0.9));
+  animation: wildPulse 1.5s ease-in-out infinite alternate;
+}
+.cell.wild .badge::before {
+  /* Show only the ×N multiplier (no separate "W" letter — matches the
+     reference, which uses the pyramid shape itself as the wild signifier) */
+  content: attr(data-mult);
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  text-shadow: 0 1px 1px rgba(255,255,200,0.5);
+  margin-top: 18%;  /* push down into the pyramid's wider base */
+}
+.cell.wild .badge::after { content: none; }
+@keyframes wildPulse {
+  from { filter: drop-shadow(0 0 12px rgba(255,200,80,0.7)); }
+  to   { filter: drop-shadow(0 0 22px rgba(255,230,120,1));   }
+}
+.cell.wild .symbol { display: none; }
+
+.cell.booster .badge {
+  display: flex;
+  background:
+    radial-gradient(circle at 30% 30%, #c6ffd6 0%, #4ed882 35%, #1b7e3c 75%, #0a3a1a 100%);
+  color: #0a1f0c;
+  border: 2px solid #a8ffb6;
+  box-shadow:
+    inset 0 0 12px rgba(200,255,200,0.5),
+    0 0 16px rgba(80,255,120,0.8),
+    0 0 30px rgba(40,200,80,0.5);
+  animation: boostFloat 0.5s ease-out;
+}
+.cell.booster .badge::before {
+  content: "+";
+  font-size: 32px;
+  line-height: 0.8;
+  text-shadow: 0 1px 1px rgba(255,255,255,0.4);
+}
+.cell.booster .badge::after {
+  content: "BOOST";
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  margin-top: 2px;
+}
+.cell.booster .symbol { display: none; }
+@keyframes boostFloat {
+  from { transform: translateY(20%) scale(0.5); opacity: 0; }
+  to   { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+.cell.destroyer .badge {
+  display: flex;
+  background:
+    radial-gradient(circle at 30% 30%, #ffb8b8 0%, #d83a3a 35%, #7a1414 75%, #2a0606 100%);
+  color: #fff2c0;
+  border: 2px solid #ff8080;
+  box-shadow:
+    inset 0 0 12px rgba(255,180,180,0.5),
+    0 0 16px rgba(255,80,80,0.8),
+    0 0 30px rgba(200,40,40,0.5);
+  animation: destShake 0.5s ease-out;
+}
+.cell.destroyer .badge::before {
+  content: "✕";
+  font-size: 28px;
+  line-height: 0.8;
+  text-shadow: 0 1px 1px rgba(0,0,0,0.6);
+}
+.cell.destroyer .badge::after {
+  content: "DESTROY";
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  margin-top: 2px;
+}
+.cell.destroyer .symbol { display: none; }
+@keyframes destShake {
+  0%   { transform: translate(0,0) scale(0.5); opacity: 0; }
+  30%  { transform: translate(-3px,0) scale(1.05); opacity: 1; }
+  60%  { transform: translate(3px,0) scale(1); }
+  100% { transform: translate(0,0) scale(1); }
+}
+
+/* Fly-out: win amount + symbol icon that animates from a cluster's centroid
+   over to the recent-wins panel when the cluster explodes. */
+.fly-win {
+  position: absolute;
+  z-index: 35;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(50,28,10,0.95), rgba(20,10,2,0.97));
+  border: 2px solid #ffd066;
+  box-shadow:
+    0 0 20px rgba(255,200,80,0.7),
+    inset 0 0 10px rgba(255,200,80,0.3);
+  pointer-events: none;
+  will-change: transform, opacity;
+  transform-origin: center;
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.6));
+}
+.fly-win .fly-icon {
+  width: 38px;
+  height: 38px;
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+.fly-win .fly-amount {
+  font-size: 22px;
+  font-weight: 900;
+  color: #ffe066;
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.9), 0 0 8px rgba(255,170,40,0.5);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* Dig-up burst when a special symbol appears */
+.dig-burst {
+  position: absolute;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(circle, rgba(255,220,80,0.8) 0%, rgba(180,80,40,0) 70%);
+  animation: digBurst 0.55s ease-out forwards;
+  z-index: 21;
+}
+@keyframes digBurst {
+  from { transform: scale(0.3); opacity: 1; }
+  to   { transform: scale(3); opacity: 0; }
+}
+
+/* ============================================================
+   Paytable / Recent wins panel (on the left stone column)
+   ============================================================ */
+
+.paytable {
+  position: absolute;
+  left: 75px;
+  top: 730px;
+  width: 280px;
+  height: 350px;
+  z-index: 8;
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(50,28,10,0.95) 0%, rgba(20,10,4,0.97) 100%);
+  border: 2px solid #b8853a;
+  box-shadow:
+    inset 0 0 18px rgba(0,0,0,0.85),
+    inset 0 0 0 1px rgba(255,200,80,0.15),
+    0 6px 18px rgba(0,0,0,0.7);
+  padding: 12px 12px 10px;
+  display: flex;
+  flex-direction: column;
+}
+.paytable-header {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  color: #ffd066;
+  text-align: center;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(214,161,74,0.4);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.9), 0 0 6px rgba(255,170,40,0.3);
+}
+.paytable-rows {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.paytable-empty {
+  text-align: center;
+  font-size: 12px;
+  color: rgba(214,161,74,0.5);
+  font-style: italic;
+  padding-top: 60px;
+  letter-spacing: 0.08em;
+}
+.pt-row {
+  display: grid;
+  grid-template-columns: 38px 44px 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, rgba(180, 130, 240, 0.18) 0%, rgba(255,200,80,0.06) 100%);
+  border-left: 3px solid rgba(255,200,80,0.7);
+  animation: ptRowIn 0.4s cubic-bezier(.3,1.4,.4,1);
+}
+@keyframes ptRowIn {
+  from { transform: translateX(-18px); opacity: 0; }
+  to   { transform: translateX(0); opacity: 1; }
+}
+.pt-count {
+  font-size: 28px;
+  font-weight: 900;
+  color: #ffffff;
+  text-align: center;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.95), 0 0 10px rgba(255,255,255,0.25);
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+.pt-icon {
+  width: 42px;
+  height: 42px;
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.7));
+}
+.pt-mult { display: none; }
+.pt-amount {
+  color: #ffffff;
+  font-weight: 900;
+  font-size: 18px;
+  text-align: right;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.95);
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+/* ============================================================
+   Free Spins banner (top of slot)
+   ============================================================ */
+
+.fs-banner {
+  position: absolute;
+  left: 700px;
+  top: 32px;
+  width: 520px;
+  z-index: 14;
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 20px;
+  background: linear-gradient(180deg, rgba(40,18,4,0.92), rgba(20,10,2,0.95));
+  border: 2px solid #d6a14a;
+  border-radius: 12px;
+  box-shadow: 0 0 24px rgba(255,180,60,0.5), inset 0 0 14px rgba(255,200,80,0.2);
+  animation: fsGlow 1.5s ease-in-out infinite alternate;
+}
+.fs-banner.visible { display: flex; }
+@keyframes fsGlow {
+  from { box-shadow: 0 0 18px rgba(255,180,60,0.4), inset 0 0 14px rgba(255,200,80,0.2); }
+  to   { box-shadow: 0 0 32px rgba(255,210,80,0.8), inset 0 0 20px rgba(255,220,100,0.4); }
+}
+.fs-banner-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+}
+.fs-label {
+  font-size: 14px;
+  letter-spacing: 0.22em;
+  color: #d6a14a;
+  text-transform: uppercase;
+}
+.fs-value {
+  font-size: 22px;
+  font-weight: 800;
+  color: #ffe8a1;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+}
+
+/* ============================================================
+   Modals (buy bonus, autoplay)
+   ============================================================ */
+
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(2px);
+}
+.modal-backdrop.visible { display: flex; }
+.modal {
+  position: relative;
+  min-width: 520px;
+  max-width: 700px;
+  padding: 32px 40px;
+  background: linear-gradient(180deg, #2a1808 0%, #110804 100%);
+  border: 3px solid #d6a14a;
+  border-radius: 18px;
+  box-shadow: 0 0 60px rgba(255,180,60,0.6), inset 0 0 30px rgba(255,200,80,0.1);
+  color: #f4e4b1;
+  text-align: center;
+  animation: modalIn 0.3s cubic-bezier(.3,1.4,.4,1);
+}
+@keyframes modalIn {
+  from { transform: scale(0.85); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+.modal-close {
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  width: 36px;
+  height: 36px;
+  background: rgba(0,0,0,0.4);
+  border: 1px solid #6e4a1c;
+  border-radius: 50%;
+  color: #d6a14a;
+  font-size: 22px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.modal-close:hover { background: rgba(80,40,20,0.7); color: #ffe066; }
+.modal-title {
+  margin: 0 0 8px;
+  font-size: 32px;
+  letter-spacing: 0.18em;
+  color: #ffe8a1;
+  text-shadow: 0 2px 6px rgba(0,0,0,0.7), 0 0 16px rgba(255,180,60,0.4);
+}
+.modal-subtitle {
+  margin: 0 0 24px;
+  font-size: 14px;
+  letter-spacing: 0.16em;
+  color: #d6a14a;
+  text-transform: uppercase;
+}
+/* ============================================================
+   Buy Free Spins modal — matches BGaming Aztec Clusters reference:
+   header description + 2x2 grid of option cards with pyramid icons,
+   each card has its label, cost, and BUY button. Bet selector below.
+   ============================================================ */
+
+.bb-modal {
+  min-width: 720px;
+  max-width: 820px;
+  padding: 32px 50px 24px;
+}
+.bb-title {
+  font-size: 38px;
+  background: linear-gradient(180deg, #ffe066 0%, #ffae00 50%, #c47a00 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.7));
+  letter-spacing: 0.06em;
+  margin-bottom: 16px;
+}
+.bb-description {
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  color: #c9b88a;
+  line-height: 1.4;
+  margin: 0 auto 28px;
+  max-width: 580px;
+  text-transform: uppercase;
+  text-align: center;
+}
+.bb-options-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.bb-option {
+  position: relative;
+  padding: 16px 14px 14px;
+  background:
+    radial-gradient(ellipse at center, rgba(255, 200, 80, 0.18) 0%, rgba(60, 35, 90, 0.45) 75%);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 200, 80, 0.25);
+  box-shadow:
+    0 0 18px rgba(255, 200, 80, 0.22),
+    inset 0 0 14px rgba(255, 200, 80, 0.12);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.bb-pyramids {
+  display: flex;
+  gap: 4px;
+  height: 36px;
+  align-items: flex-end;
+  min-height: 36px;
+}
+.bb-pyramid {
+  width: 30px;
+  height: 32px;
+  background: linear-gradient(180deg, #ffe48a 0%, #f5b73d 30%, #d4961f 60%, #a26d18 100%);
+  clip-path: polygon(
+    8% 100%, 92% 100%,
+    92% 82%, 84% 82%,
+    84% 62%, 76% 62%,
+    76% 40%, 66% 40%,
+    66% 18%, 34% 18%,
+    34% 40%, 24% 40%,
+    24% 62%, 16% 62%,
+    16% 82%,  8% 82%
+  );
+  filter: drop-shadow(0 0 8px rgba(255,200,80,0.7));
+}
+.bb-label-main {
+  font-size: 19px;
+  font-weight: 900;
+  color: #ffffff;
+  letter-spacing: 0.05em;
+  text-shadow: 0 2px 3px rgba(0,0,0,0.8);
+  line-height: 1;
+}
+.bb-label-sub {
+  font-size: 14px;
+  font-weight: 700;
+  color: #c9b88a;
+  letter-spacing: 0.1em;
+  margin-top: -4px;
+  text-transform: uppercase;
+}
+.bb-cost {
+  font-size: 22px;
+  font-weight: 900;
+  color: #ffffff;
+  letter-spacing: -0.01em;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+  margin-top: 2px;
+}
+.bb-buy {
+  margin-top: 4px;
+  padding: 8px 28px;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  color: #ffffff;
+  background: linear-gradient(180deg, #f5b73d 0%, #d4961f 50%, #a26d18 100%);
+  border: 2px solid #ffe066;
+  border-radius: 10px;
+  cursor: pointer;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+  transition: transform 0.12s ease, filter 0.12s ease;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.4),
+    0 3px 8px rgba(0,0,0,0.5);
+}
+.bb-buy:hover { transform: translateY(-2px); filter: brightness(1.1); }
+.bb-buy:active { transform: translateY(1px); }
+.bb-buy:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  filter: grayscale(0.7);
+}
+.bb-option.disabled .bb-buy {
+  cursor: not-allowed;
+  opacity: 0.5;
+  filter: grayscale(0.7);
+}
+
+/* ============================================================
+   Buy Free Spins confirmation modal
+   ============================================================ */
+
+.bb-confirm {
+  position: relative;
+  width: 580px;
+  padding: 40px 40px 60px;
+  background: transparent;
+  text-align: center;
+  animation: modalIn 0.3s cubic-bezier(.3,1.4,.4,1);
+}
+.bb-confirm-jar {
+  position: relative;
+  padding: 30px 40px;
+  background:
+    radial-gradient(ellipse at center top, rgba(150, 200, 230, 0.25) 0%, rgba(60, 90, 130, 0.55) 70%);
+  border: 2px solid rgba(150, 200, 230, 0.5);
+  border-radius: 18px;
+  box-shadow:
+    0 0 30px rgba(120, 180, 230, 0.4),
+    inset 0 0 18px rgba(200, 230, 255, 0.15);
+}
+.bb-confirm-amount {
+  font-size: 42px;
+  font-weight: 900;
+  color: #ffffff;
+  text-shadow: 0 2px 6px rgba(0,0,0,0.8), 0 0 20px rgba(255,200,80,0.4);
+  letter-spacing: -0.01em;
+  margin-bottom: 16px;
+}
+.bb-confirm-desc {
+  margin: 0 0 24px;
+  font-size: 13px;
+  letter-spacing: 0.22em;
+  color: #c9d8e8;
+  text-transform: uppercase;
+  line-height: 1.5;
+}
+.bb-confirm-buttons {
+  display: flex;
+  gap: 18px;
+  justify-content: center;
+}
+.bb-confirm-back,
+.bb-confirm-ok {
+  padding: 10px 36px;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #ffffff;
+  border-radius: 10px;
+  border: 2px solid;
+  cursor: pointer;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+  transition: transform 0.12s ease, filter 0.12s ease;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.5);
+}
+.bb-confirm-back {
+  background: linear-gradient(180deg, #a35bc4 0%, #6a3a90 100%);
+  border-color: #c084dd;
+}
+.bb-confirm-ok {
+  background: linear-gradient(180deg, #f5b73d 0%, #d4961f 50%, #a26d18 100%);
+  border-color: #ffe066;
+}
+.bb-confirm-back:hover,
+.bb-confirm-ok:hover { transform: translateY(-2px); filter: brightness(1.1); }
+.bb-confirm-back:active,
+.bb-confirm-ok:active { transform: translateY(1px); }
+
+/* ============================================================
+   Wild Spin modal
+   ============================================================ */
+
+.ws-title {
+  background: linear-gradient(180deg, #ffe066 0%, #ffae00 50%, #c47a00 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.8));
+  font-size: 38px;
+  letter-spacing: 0.06em;
+  margin-bottom: 16px;
+}
+.ws-cost {
+  font-size: 42px;
+  font-weight: 900;
+  color: #ffffff;
+  text-shadow: 0 2px 6px rgba(0,0,0,0.7), 0 0 16px rgba(255,200,80,0.5);
+  margin-bottom: 18px;
+  letter-spacing: 0.02em;
+}
+.ws-volatile {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  color: #ffe8a1;
+  margin: 0 0 12px;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.7);
+}
+.ws-desc {
+  margin: 0 0 20px;
+  font-size: 14px;
+  letter-spacing: 0.06em;
+  line-height: 1.5;
+  color: #c9b88a;
+  max-width: 540px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.ws-activate {
+  display: inline-block;
+  padding: 14px 56px;
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  color: #ffffff;
+  background: linear-gradient(180deg, #f5b73d 0%, #d4961f 50%, #a26d18 100%);
+  border: 3px solid #ffe066;
+  border-radius: 14px;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.4),
+    0 4px 12px rgba(0,0,0,0.5),
+    0 0 24px rgba(255,200,80,0.5);
+  cursor: pointer;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+  margin-bottom: 24px;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.ws-activate:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.4),
+    0 6px 16px rgba(0,0,0,0.5),
+    0 0 32px rgba(255,220,100,0.7);
+}
+.ws-activate:active { transform: translateY(1px); }
+.ws-bet {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+}
+.ws-bet-btn {
+  width: 44px;
+  height: 44px;
+  background: transparent;
+  border: 0;
+  font-size: 32px;
+  color: #f5b73d;
+  cursor: pointer;
+  filter: drop-shadow(0 2px 3px rgba(0,0,0,0.5));
+}
+.ws-bet-btn:hover { color: #ffe066; }
+.ws-bet-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 80px;
+}
+.ws-bet-label {
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  color: #c9b88a;
+  text-transform: uppercase;
+}
+.ws-bet-value {
+  font-size: 28px;
+  font-weight: 800;
+  color: #ffffff;
+  line-height: 1.1;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.7);
+}
+.ws-bet-unit {
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  color: #c9b88a;
+}
+
+/* ============================================================
+   Free Spins trigger modal (announcement)
+   ============================================================ */
+
+.fs-trigger {
+  position: relative;
+  width: 640px;
+  padding: 60px 50px;
+  background:
+    radial-gradient(ellipse at center, rgba(80, 50, 130, 0.7) 0%, rgba(20, 10, 30, 0.95) 70%);
+  border-radius: 20px;
+  text-align: center;
+  animation: modalIn 0.4s cubic-bezier(.3,1.4,.4,1);
+  box-shadow: 0 0 100px rgba(180, 130, 240, 0.6);
+}
+.fs-trigger-title {
+  margin: 0 0 40px;
+  font-size: 48px;
+  letter-spacing: 0.08em;
+  background: linear-gradient(180deg, #ffe066 0%, #ffae00 50%, #c47a00 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.7));
+}
+.fs-trigger-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  margin-bottom: 32px;
+}
+.fs-trigger-medallions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.fs-medallion {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 30% 30%, #ffe48a 0%, #f5b73d 35%, #b07520 75%, #5a3a08 100%);
+  border: 2px solid #ffe066;
+  box-shadow: 0 0 14px rgba(255, 200, 80, 0.7);
+  background-image: url("assets/symbol01.png");
+  background-size: 70%;
+  background-position: center;
+  background-repeat: no-repeat, no-repeat;
+  background-blend-mode: overlay, normal;
+}
+.fs-trigger-count {
+  font-size: 110px;
+  font-weight: 900;
+  color: #ffffff;
+  line-height: 1;
+  text-shadow:
+    0 4px 10px rgba(0,0,0,0.8),
+    0 0 30px rgba(255, 200, 80, 0.6);
+  letter-spacing: -0.02em;
+}
+.fs-trigger-retriggers {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.fs-retrig {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 30% 30%, rgba(80,120,140,0.95) 0%, rgba(40,80,100,1) 70%);
+  border: 2px solid rgba(120, 180, 200, 0.8);
+  color: #b8e0f0;
+  font-size: 22px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+}
+.fs-trigger-cta {
+  margin: 0;
+  font-size: 15px;
+  letter-spacing: 0.32em;
+  color: #ffffff;
+  text-transform: uppercase;
+  opacity: 0.85;
+  animation: ctaBlink 1.4s ease-in-out infinite alternate;
+}
+@keyframes ctaBlink {
+  from { opacity: 0.5; }
+  to   { opacity: 1; }
+}
+
+/* ============================================================
+   Bonus Active panel (shown on the left during FS round)
+   ============================================================ */
+
+.bonus-active-panel {
+  position: absolute;
+  left: 100px;
+  top: 460px;
+  width: 200px;
+  z-index: 9;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  padding: 14px 12px;
+  background:
+    linear-gradient(180deg, rgba(70, 100, 150, 0.85), rgba(30, 50, 90, 0.92));
+  border: 2px solid #7ab7d8;
+  border-radius: 12px;
+  box-shadow:
+    0 0 24px rgba(120, 180, 240, 0.5),
+    inset 0 0 10px rgba(150, 220, 255, 0.2);
+  animation: baGlow 2s ease-in-out infinite alternate;
+}
+.bonus-active-panel.visible { display: flex; }
+@keyframes baGlow {
+  from { box-shadow: 0 0 18px rgba(120, 180, 240, 0.4), inset 0 0 10px rgba(150, 220, 255, 0.2); }
+  to   { box-shadow: 0 0 28px rgba(150, 200, 255, 0.7), inset 0 0 14px rgba(180, 240, 255, 0.35); }
+}
+.ba-label {
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  color: #ffe066;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+  margin-bottom: 4px;
+}
+.ba-value {
+  font-size: 22px;
+  font-weight: 900;
+  color: #ffffff;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.8), 0 0 12px rgba(255, 220, 100, 0.5);
+}
+
+.auto-options {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.auto-btn {
+  padding: 18px 0;
+  background: linear-gradient(180deg, #4a2a10 0%, #1a0d05 100%);
+  border: 2px solid #8a5a26;
+  border-radius: 10px;
+  color: #ffe8a1;
+  font-family: inherit;
+  font-size: 22px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+.auto-btn:hover {
+  border-color: #ffd066;
+  box-shadow: 0 0 16px rgba(255,200,80,0.5);
+}
+.auto-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #d6a14a;
+  cursor: pointer;
+}
+.auto-toggle input { accent-color: #d6a14a; }
+

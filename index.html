@@ -30,6 +30,13 @@
       </button>
       <div class="wildspin-amount">15.00 ETH - wild spin amount</div>
 
+      <div class="paytable" id="paytable" aria-label="Recent wins">
+        <div class="paytable-header">RECENT WINS</div>
+        <div class="paytable-rows" id="paytableRows">
+          <div class="paytable-empty">No wins yet</div>
+        </div>
+      </div>
+
       <img class="image-16" src="assets/image 16.png" alt="" />
 
       <img class="slot-frame" src="assets/slot-frame.png" alt="" />
@@ -76,6 +83,112 @@
 
       <div class="win-banner" id="winBanner" aria-hidden="true">
         <span id="winBannerText">BIG WIN</span>
+      </div>
+
+      <div class="fs-banner" id="fsBanner" aria-hidden="true">
+        <div class="fs-banner-row">
+          <span class="fs-label">FREE SPINS</span>
+          <span class="fs-value"><span id="fsLeft">0</span> / <span id="fsTotal">0</span></span>
+        </div>
+        <div class="fs-banner-row">
+          <span class="fs-label">FS WIN</span>
+          <span class="fs-value" id="fsWin">0.00 ETH</span>
+        </div>
+      </div>
+
+      <div class="modal-backdrop" id="buyBonusModal" aria-hidden="true">
+        <div class="modal bb-modal" role="dialog" aria-label="Buy Free Spins">
+          <button class="modal-close" id="buyBonusClose" type="button" aria-label="Close">×</button>
+          <h2 class="modal-title bb-title">BUY FREE SPINS</h2>
+          <p class="bb-description">After purchasing 3-6 scatters will drop on reels. These scatters will turn into ×10 cell multiplier or sticky wild during free spins.</p>
+          <div class="bb-options-grid" id="bbOptions"></div>
+          <div class="ws-bet">
+            <button class="ws-bet-btn" id="bbBetDown" type="button" aria-label="Decrease bet">◀</button>
+            <div class="ws-bet-info">
+              <div class="ws-bet-label">Bet</div>
+              <div class="ws-bet-value" id="bbBet">1.00</div>
+              <div class="ws-bet-unit">ETH</div>
+            </div>
+            <button class="ws-bet-btn" id="bbBetUp" type="button" aria-label="Increase bet">▶</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-backdrop" id="bbConfirmModal" aria-hidden="true">
+        <div class="bb-confirm" role="dialog" aria-label="Confirm purchase">
+          <button class="modal-close" id="bbConfirmClose" type="button" aria-label="Close">×</button>
+          <div class="bb-confirm-jar">
+            <div class="bb-confirm-amount" id="bbConfirmAmount">0.00 ETH</div>
+            <p class="bb-confirm-desc">WILL BE SUBTRACTED<br/>FROM YOUR BALANCE</p>
+            <div class="bb-confirm-buttons">
+              <button class="bb-confirm-back" id="bbConfirmBack" type="button">Back</button>
+              <button class="bb-confirm-ok" id="bbConfirmOk" type="button">OK</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-backdrop" id="wildSpinModal" aria-hidden="true">
+        <div class="modal" role="dialog" aria-label="Wild Spin">
+          <button class="modal-close" id="wildSpinClose" type="button" aria-label="Close">×</button>
+          <h2 class="modal-title ws-title">WILD SPIN</h2>
+          <div class="ws-cost"><span id="wsCost">20.00</span> ETH</div>
+          <p class="ws-volatile">EXTREMELY VOLATILE</p>
+          <p class="ws-desc">When activated each spin guarantees at least 1 wild to be dug up at the start of that spin. Feature remains active until you deactivate it. Maxwin hitrate with this feature is 1/4600</p>
+          <button class="ws-activate" id="wsActivate" type="button">ACTIVATE</button>
+          <div class="ws-bet">
+            <button class="ws-bet-btn" id="wsBetDown" type="button" aria-label="Decrease bet">◀</button>
+            <div class="ws-bet-info">
+              <div class="ws-bet-label">Bet</div>
+              <div class="ws-bet-value" id="wsBet">1.00</div>
+              <div class="ws-bet-unit">ETH</div>
+            </div>
+            <button class="ws-bet-btn" id="wsBetUp" type="button" aria-label="Increase bet">▶</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-backdrop" id="fsTriggerModal" aria-hidden="true">
+        <div class="fs-trigger" role="dialog" aria-label="Free Spins">
+          <h2 class="fs-trigger-title">FREE SPINS</h2>
+          <div class="fs-trigger-row">
+            <div class="fs-trigger-medallions">
+              <div class="fs-medallion"></div>
+              <div class="fs-medallion"></div>
+              <div class="fs-medallion"></div>
+            </div>
+            <div class="fs-trigger-count" id="fsTriggerCount">10</div>
+            <div class="fs-trigger-retriggers">
+              <div class="fs-retrig">+5</div>
+              <div class="fs-retrig">+3</div>
+              <div class="fs-retrig">+2</div>
+            </div>
+          </div>
+          <p class="fs-trigger-cta">CLICK TO CONTINUE</p>
+        </div>
+      </div>
+
+      <div class="bonus-active-panel" id="bonusActivePanel" aria-hidden="true">
+        <div class="ba-label">BONUS ACTIVE</div>
+        <div class="ba-value" id="baValue">0.00 ETH</div>
+      </div>
+
+      <div class="modal-backdrop" id="autoplayModal" aria-hidden="true">
+        <div class="modal" role="dialog" aria-label="Autoplay">
+          <button class="modal-close" id="autoplayClose" type="button" aria-label="Close">×</button>
+          <h2 class="modal-title">AUTOPLAY</h2>
+          <p class="modal-subtitle">Select number of spins</p>
+          <div class="auto-options">
+            <button class="auto-btn" data-count="10">10</button>
+            <button class="auto-btn" data-count="25">25</button>
+            <button class="auto-btn" data-count="50">50</button>
+            <button class="auto-btn" data-count="100">100</button>
+          </div>
+          <label class="auto-toggle">
+            <input type="checkbox" id="autoStopOnFs" checked />
+            <span>Stop if bonus is won</span>
+          </label>
+        </div>
       </div>
     </div>
   </div>
