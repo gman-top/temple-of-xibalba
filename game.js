@@ -494,8 +494,9 @@
       paytableRows.innerHTML = '<div class="paytable-empty">No wins yet</div>';
       return;
     }
-    // Show up to 8 rows (as many as fit on the totem)
-    const visible = state.recentWins.slice(0, 8);
+    // Show up to 3 rows — the space between the two carved arrows on the
+    // totem fits ~3 rows cleanly without crowding either arrow.
+    const visible = state.recentWins.slice(0, 3);
     paytableRows.innerHTML = "";
     for (const w of visible) {
       const row = document.createElement("div");
