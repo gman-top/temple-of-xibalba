@@ -423,20 +423,27 @@
     if (state.recentWins.length > 8) state.recentWins.length = 8;
     renderPaytable();
   }
+  function fmtPayMult(m) {
+    if (m >= 10) return `×${Math.round(m)}`;
+    if (m >= 1)  return `×${m.toFixed(1)}`;
+    return `×${m.toFixed(2)}`;
+  }
   function renderPaytable() {
     if (!state.recentWins.length) {
       paytableRows.innerHTML = '<div class="paytable-empty">No wins yet</div>';
       return;
     }
+    // Cap at 6 visible rows so the panel doesn't overflow
+    const visible = state.recentWins.slice(0, 6);
     paytableRows.innerHTML = "";
-    for (const w of state.recentWins) {
+    for (const w of visible) {
       const row = document.createElement("div");
       row.className = "pt-row";
       const icon = `assets/${REG_ASSETS[w.symIdx]}.png`;
       row.innerHTML =
         `<span class="pt-count">${w.size}</span>` +
         `<div class="pt-icon" style="background-image:url('${icon}')"></div>` +
-        `<span class="pt-mult">×${w.payMult.toFixed(0)}</span>` +
+        `<span class="pt-mult">${fmtPayMult(w.payMult)}</span>` +
         `<span class="pt-amount">${fmt(w.amount)}</span>`;
       paytableRows.appendChild(row);
     }
@@ -734,7 +741,8 @@
     btnSpin.classList.add("spinning");
     state.lastWin = 0;
     state.totalSpinWin = 0;
-    if (!state.inFreeSpins) clearRecentWins();
+    // Recent wins persist across spins — new wins prepend; old wins age out
+    // naturally via the 8-row cap.
     refreshHUD();
 
     // Reset multipliers per spin (unless in FS)
@@ -771,7 +779,7 @@
         const finalMult = Math.max(1, multSum);
         const win = +(base * finalMult).toFixed(2);
         stepWin += win;
-        const payMult = +(base * finalMult / effectiveBet).toFixed(0);
+        const payMult = +(base * finalMult / effectiveBet).toFixed(2);
         addRecentWin(cl.symIdx, cl.cells.length, payMult, win);
         allCells.push(...cl.cells);
       }
@@ -930,7 +938,7 @@
           const base = payForCluster(cl.symIdx, cl.cells.length) * state.bet;
           const win = +(base * Math.max(1, multSum)).toFixed(2);
           stepWin += win;
-          addRecentWin(cl.symIdx, cl.cells.length, +(base * Math.max(1, multSum) / state.bet).toFixed(0), win);
+          addRecentWin(cl.symIdx, cl.cells.length, +(base * Math.max(1, multSum) / state.bet).toFixed(2), win);
           allCells.push(...cl.cells);
         }
         state.freeSpinsWin += stepWin;
@@ -1033,7 +1041,6 @@
     btnSpin.classList.add("spinning");
     state.lastWin = 0;
     state.totalSpinWin = 0;
-    clearRecentWins();
     state.cellMult = makeEmptyGrid(false);
 
     const g = randomGrid();
@@ -1061,7 +1068,7 @@
         const base = payForCluster(cl.symIdx, cl.cells.length) * state.bet;
         const win = +base.toFixed(2);
         stepWin += win;
-        addRecentWin(cl.symIdx, cl.cells.length, +(base / state.bet).toFixed(0), win);
+        addRecentWin(cl.symIdx, cl.cells.length, +(base / state.bet).toFixed(2), win);
         allCells.push(...cl.cells);
       }
       state.totalSpinWin += stepWin;
