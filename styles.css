@@ -520,32 +520,27 @@ button:active img {
 }
 
 /* Empty cells that retain just a multiplier marker render as a GOLD STEPPED
-   AZTEC PYRAMID (matching the ×60 / ×80 / ×100 visuals in the reference). */
+   AZTEC PYRAMID PNG with the ×N text overlaid. */
 .cell.mult-only .symbol { display: none; }
 .cell.mult-only .multiplier {
-  inset: 6%;
-  background:
-    linear-gradient(180deg,
-      #ffe48a 0%,
-      #f5b73d 30%,
-      #d4961f 60%,
-      #a26d18 100%);
-  /* Stepped Aztec pyramid shape (ziggurat) */
-  clip-path: polygon(
-    8% 100%, 92% 100%,
-    92% 82%, 84% 82%,
-    84% 62%, 76% 62%,
-    76% 40%, 66% 40%,
-    66% 18%, 34% 18%,
-    34% 40%, 24% 40%,
-    24% 62%, 16% 62%,
-    16% 82%,  8% 82%
-  );
-  color: #2a1500;
+  inset: 4%;
+  background-image: url("assets/mult-pyramid-base.png");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  color: #ffffff;
   border: 0;
   border-radius: 0;
-  font-size: 22px;
-  text-shadow: 0 1px 1px rgba(255,255,200,0.55);
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  /* Push the text down to land in the pyramid's central rectangular cartouche
+     (the empty placeholder area in the rendered asset). */
+  padding-top: 38%;
+  align-items: flex-start;
+  text-shadow:
+    0 1px 2px rgba(0,0,0,0.85),
+    0 0 6px rgba(0,0,0,0.6);
   box-shadow: none;
   filter: drop-shadow(0 0 14px rgba(255,200,80,0.85));
 }
@@ -554,113 +549,62 @@ button:active img {
   to   { transform: scale(1); opacity: 1; }
 }
 
-/* Scatter = round GOLD AZTEC MEDALLION (multi-ring border, gold radial fill),
-   with the symbol01 face floating on top. Matches the reference exactly. */
+/* Scatter = round GOLD AZTEC MEDALLION. Uses the rendered scatter-medallion
+   asset (gold disc with Aztec sun-face + four teal cabochon gems). */
 .cell.scatter {
   position: relative;
 }
-.cell.scatter::before {
-  content: "";
-  position: absolute;
-  inset: 6%;
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at 30% 28%,
-      #fff3a8 0%,
-      #ffd66a 18%,
-      #f0b73a 38%,
-      #c08820 65%,
-      #7e5610 100%);
-  /* Concentric Aztec ring detail using box-shadows */
-  box-shadow:
-    inset 0 0 0 2px #d4961f,
-    inset 0 0 0 4px #8a5a16,
-    inset 0 0 0 6px #d4961f,
-    inset 0 0 14px rgba(255,255,200,0.45),
-    0 0 18px rgba(255,200,80,0.85),
-    0 0 32px rgba(255,160,0,0.5);
-  z-index: 1;
+.cell.scatter .symbol {
+  background-image: url("assets/scatter-medallion.png") !important;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,0.7));
   animation: scatterPulse 1.4s ease-in-out infinite alternate;
 }
-/* Notches around the medallion (the small green/teal accents in the reference) */
-.cell.scatter::after {
-  content: "";
-  position: absolute;
-  inset: 6%;
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at 50%   8%, #4ad6c8 0 4px, transparent 5px),
-    radial-gradient(circle at 92%  50%, #4ad6c8 0 4px, transparent 5px),
-    radial-gradient(circle at 50%  92%, #4ad6c8 0 4px, transparent 5px),
-    radial-gradient(circle at  8%  50%, #4ad6c8 0 4px, transparent 5px);
-  z-index: 2;
-  pointer-events: none;
-}
-.cell.scatter .symbol {
-  position: relative;
-  z-index: 3;
-  width: 64%;
-  height: 64%;
-  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.7)) brightness(1.05);
-}
 @keyframes scatterPulse {
-  from { transform: scale(1); filter: drop-shadow(0 0 12px rgba(255,200,80,0.5)); }
-  to   { transform: scale(1.04); filter: drop-shadow(0 0 20px rgba(255,220,100,0.9)); }
+  from { transform: scale(1); filter: drop-shadow(0 0 10px rgba(255,200,80,0.6)) drop-shadow(0 2px 4px rgba(0,0,0,0.6)); }
+  to   { transform: scale(1.05); filter: drop-shadow(0 0 22px rgba(255,220,100,1)) drop-shadow(0 2px 4px rgba(0,0,0,0.6)); }
 }
 
-/* Synthetic special-symbol badges (wild/booster/destroyer) — no asset images */
+/* Synthetic special-symbol badges (wild/booster/destroyer) — these now use
+   rendered PNG art instead of CSS clip-paths. */
 .cell .badge {
   position: absolute;
-  inset: 6%;
+  inset: 4%;
   z-index: 7;
   display: none;
   align-items: center;
   justify-content: center;
-  flex-direction: column;
-  border-radius: 14px;
-  font-weight: 900;
-  text-align: center;
   pointer-events: none;
-  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.6));
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
 }
-/* Wild = stepped Aztec pyramid, gold, with the ×N multiplier prominently
-   displayed in the middle. Replaces the previous round medallion. */
+/* Wild = the gold pyramid PNG with the "W" already baked in. The ×N
+   multiplier text overlays on top of the lower-middle façade. */
 .cell.wild .badge {
   display: flex;
-  inset: 6%;
-  border-radius: 0;
-  border: 0;
-  background:
-    linear-gradient(180deg,
-      #ffe48a 0%,
-      #f5b73d 30%,
-      #d4961f 60%,
-      #a26d18 100%);
-  clip-path: polygon(
-    8% 100%, 92% 100%,
-    92% 82%, 84% 82%,
-    84% 62%, 76% 62%,
-    76% 40%, 66% 40%,
-    66% 18%, 34% 18%,
-    34% 40%, 24% 40%,
-    24% 62%, 16% 62%,
-    16% 82%,  8% 82%
-  );
-  color: #2a1500;
-  box-shadow: none;
+  background-image: url("assets/wild-pyramid.png");
   filter: drop-shadow(0 0 16px rgba(255,200,80,0.9));
   animation: wildPulse 1.5s ease-in-out infinite alternate;
 }
 .cell.wild .badge::before {
-  /* Show only the ×N multiplier (no separate "W" letter — matches the
-     reference, which uses the pyramid shape itself as the wild signifier) */
+  /* ×N multiplier text positioned below the pyramid's "W" face */
   content: attr(data-mult);
-  font-size: 22px;
+  font-family: inherit;
+  font-size: 18px;
   font-weight: 900;
+  color: #ffffff;
   letter-spacing: -0.02em;
   line-height: 1;
-  text-shadow: 0 1px 1px rgba(255,255,200,0.5);
-  margin-top: 18%;  /* push down into the pyramid's wider base */
+  text-shadow: 0 1px 2px rgba(0,0,0,0.9), 0 0 6px rgba(0,0,0,0.6);
+  position: absolute;
+  bottom: 12%;
+  left: 50%;
+  transform: translateX(-50%);
 }
 .cell.wild .badge::after { content: none; }
 @keyframes wildPulse {
@@ -671,28 +615,12 @@ button:active img {
 
 .cell.booster .badge {
   display: flex;
-  background:
-    radial-gradient(circle at 30% 30%, #c6ffd6 0%, #4ed882 35%, #1b7e3c 75%, #0a3a1a 100%);
-  color: #0a1f0c;
-  border: 2px solid #a8ffb6;
-  box-shadow:
-    inset 0 0 12px rgba(200,255,200,0.5),
-    0 0 16px rgba(80,255,120,0.8),
-    0 0 30px rgba(40,200,80,0.5);
+  background-image: url("assets/booster-symbol.png");
+  filter: drop-shadow(0 0 18px rgba(80,255,120,0.7));
   animation: boostFloat 0.5s ease-out;
 }
-.cell.booster .badge::before {
-  content: "+";
-  font-size: 32px;
-  line-height: 0.8;
-  text-shadow: 0 1px 1px rgba(255,255,255,0.4);
-}
-.cell.booster .badge::after {
-  content: "BOOST";
-  font-size: 10px;
-  letter-spacing: 0.1em;
-  margin-top: 2px;
-}
+.cell.booster .badge::before,
+.cell.booster .badge::after { content: none; }
 .cell.booster .symbol { display: none; }
 @keyframes boostFloat {
   from { transform: translateY(20%) scale(0.5); opacity: 0; }
@@ -701,28 +629,12 @@ button:active img {
 
 .cell.destroyer .badge {
   display: flex;
-  background:
-    radial-gradient(circle at 30% 30%, #ffb8b8 0%, #d83a3a 35%, #7a1414 75%, #2a0606 100%);
-  color: #fff2c0;
-  border: 2px solid #ff8080;
-  box-shadow:
-    inset 0 0 12px rgba(255,180,180,0.5),
-    0 0 16px rgba(255,80,80,0.8),
-    0 0 30px rgba(200,40,40,0.5);
+  background-image: url("assets/destroyer-symbol.png");
+  filter: drop-shadow(0 0 18px rgba(255,80,80,0.7));
   animation: destShake 0.5s ease-out;
 }
-.cell.destroyer .badge::before {
-  content: "✕";
-  font-size: 28px;
-  line-height: 0.8;
-  text-shadow: 0 1px 1px rgba(0,0,0,0.6);
-}
-.cell.destroyer .badge::after {
-  content: "DESTROY";
-  font-size: 9px;
-  letter-spacing: 0.1em;
-  margin-top: 2px;
-}
+.cell.destroyer .badge::before,
+.cell.destroyer .badge::after { content: none; }
 .cell.destroyer .symbol { display: none; }
 @keyframes destShake {
   0%   { transform: translate(0,0) scale(0.5); opacity: 0; }
@@ -916,41 +828,48 @@ button:active img {
   backdrop-filter: blur(2px);
 }
 .modal-backdrop.visible { display: flex; }
+/* Modal panel = rendered stone-tablet PNG with carved gold border. The image's
+   natural aspect is ~4:3 LANDSCAPE; we constrain the modal to that ratio so
+   the carved border renders without distortion. */
 .modal {
   position: relative;
-  min-width: 520px;
-  max-width: 700px;
-  padding: 32px 40px;
-  background: linear-gradient(180deg, #2a1808 0%, #110804 100%);
-  border: 3px solid #d6a14a;
-  border-radius: 18px;
-  box-shadow: 0 0 60px rgba(255,180,60,0.6), inset 0 0 30px rgba(255,200,80,0.1);
+  width: 760px;
+  min-height: 560px;
+  padding: 80px 100px 60px;
+  background-image: url("assets/modal-panel-bg.png");
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  border: 0;
+  border-radius: 0;
+  box-shadow: 0 0 60px rgba(255,180,60,0.45);
   color: #f4e4b1;
   text-align: center;
   animation: modalIn 0.3s cubic-bezier(.3,1.4,.4,1);
+  box-sizing: border-box;
 }
 @keyframes modalIn {
   from { transform: scale(0.85); opacity: 0; }
   to   { transform: scale(1); opacity: 1; }
 }
+/* Close X = the rendered btn-close-x PNG (round gold Aztec button with X) */
 .modal-close {
   position: absolute;
-  top: 10px;
-  right: 14px;
-  width: 36px;
-  height: 36px;
-  background: rgba(0,0,0,0.4);
-  border: 1px solid #6e4a1c;
-  border-radius: 50%;
-  color: #d6a14a;
-  font-size: 22px;
-  line-height: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  top: 18px;
+  right: 22px;
+  width: 50px;
+  height: 50px;
+  background: url("assets/btn-close-x.png") center/contain no-repeat;
+  border: 0;
+  font-size: 0;
+  color: transparent;
   cursor: pointer;
+  transition: transform 0.12s ease, filter 0.12s ease;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+  z-index: 5;
 }
-.modal-close:hover { background: rgba(80,40,20,0.7); color: #ffe066; }
+.modal-close:hover { transform: scale(1.1); filter: drop-shadow(0 0 12px rgba(255,200,80,0.8)); }
+/* Modal titles now use rendered 3D-text PNGs. The text-based fallback below
+   is for any modal that doesn't have an art asset yet. */
 .modal-title {
   margin: 0 0 8px;
   font-size: 32px;
@@ -958,6 +877,24 @@ button:active img {
   color: #ffe8a1;
   text-shadow: 0 2px 6px rgba(0,0,0,0.7), 0 0 16px rgba(255,180,60,0.4);
 }
+/* Title artwork is 1024x1024 PNG with the text occupying the central area
+   and transparent whitespace around. Container is sized to give the text
+   visible presence; background-size: contain preserves text aspect. */
+.modal-title.art {
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  font-size: 0;
+  color: transparent;
+  width: 360px;
+  height: 180px;
+  margin: -20px auto 8px;
+  filter: drop-shadow(0 4px 12px rgba(0,0,0,0.7));
+}
+.modal-title.art-wild-spin       { background-image: url("assets/title-wild-spin.png"); }
+.modal-title.art-buy-free-spins  { background-image: url("assets/title-buy-free-spins.png"); }
+.modal-title.art-free-spins      { background-image: url("assets/title-free-spins.png"); }
+.modal-title.art-bonus-game      { background-image: url("assets/title-bonus-game.png"); }
 .modal-subtitle {
   margin: 0 0 24px;
   font-size: 14px;
@@ -971,10 +908,13 @@ button:active img {
    each card has its label, cost, and BUY button. Bet selector below.
    ============================================================ */
 
+/* Buy FS modal is wider to fit 4 cards in 2x2 with comfortable spacing,
+   but capped at viewport height so the close X stays visible. */
 .bb-modal {
-  min-width: 720px;
-  max-width: 820px;
-  padding: 32px 50px 24px;
+  width: 1080px;
+  min-height: 820px;
+  max-height: 1040px;
+  padding: 90px 110px 70px;
 }
 .bb-title {
   font-size: 38px;
@@ -999,46 +939,45 @@ button:active img {
 .bb-options-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  gap: 24px;
   margin-bottom: 24px;
 }
+/* Each buy option = rendered card-buy-option-bg PNG (ornate Aztec stone
+   frame). The frame eats ~20% of the asset on each side, so content uses
+   generous padding to stay inside the inner stone field. */
+/* Card PNG is 1254x1254 (square) — make card square so the carved border
+   renders correctly without horizontal distortion. */
 .bb-option {
   position: relative;
-  padding: 16px 14px 14px;
-  background:
-    radial-gradient(ellipse at center, rgba(255, 200, 80, 0.18) 0%, rgba(60, 35, 90, 0.45) 75%);
-  border-radius: 12px;
-  border: 1px solid rgba(255, 200, 80, 0.25);
-  box-shadow:
-    0 0 18px rgba(255, 200, 80, 0.22),
-    inset 0 0 14px rgba(255, 200, 80, 0.12);
+  width: 380px;
+  height: 380px;
+  padding: 64px 48px 48px;
+  background-image: url("assets/card-buy-option-bg.png");
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  box-sizing: border-box;
+  margin: 0 auto;
 }
 .bb-pyramids {
   display: flex;
-  gap: 4px;
-  height: 36px;
+  gap: 6px;
+  height: 88px;
   align-items: flex-end;
-  min-height: 36px;
+  min-height: 88px;
+  justify-content: center;
 }
 .bb-pyramid {
-  width: 30px;
-  height: 32px;
-  background: linear-gradient(180deg, #ffe48a 0%, #f5b73d 30%, #d4961f 60%, #a26d18 100%);
-  clip-path: polygon(
-    8% 100%, 92% 100%,
-    92% 82%, 84% 82%,
-    84% 62%, 76% 62%,
-    76% 40%, 66% 40%,
-    66% 18%, 34% 18%,
-    34% 40%, 24% 40%,
-    24% 62%, 16% 62%,
-    16% 82%,  8% 82%
-  );
-  filter: drop-shadow(0 0 8px rgba(255,200,80,0.7));
+  width: 80px;
+  height: 80px;
+  background: url("assets/pyramid-stack.png") center/contain no-repeat;
+  filter: drop-shadow(0 0 14px rgba(255,200,80,0.85));
 }
 .bb-label-main {
   font-size: 19px;
@@ -1064,35 +1003,30 @@ button:active img {
   text-shadow: 0 1px 3px rgba(0,0,0,0.9);
   margin-top: 2px;
 }
+/* BUY button = rendered btn-buy PNG (red/gold ornate). Disabled state uses
+   btn-buy-disabled.png (silver/grey weathered version). */
 .bb-buy {
-  margin-top: 4px;
-  padding: 8px 28px;
-  font-size: 14px;
-  font-weight: 800;
-  letter-spacing: 0.16em;
-  color: #ffffff;
-  background: linear-gradient(180deg, #f5b73d 0%, #d4961f 50%, #a26d18 100%);
-  border: 2px solid #ffe066;
-  border-radius: 10px;
+  margin-top: 6px;
+  width: 160px;
+  height: 56px;
+  background: url("assets/btn-buy.png") center/contain no-repeat;
+  border: 0;
+  font-size: 0;
+  color: transparent;
   cursor: pointer;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
   transition: transform 0.12s ease, filter 0.12s ease;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.4),
-    0 3px 8px rgba(0,0,0,0.5);
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
 }
-.bb-buy:hover { transform: translateY(-2px); filter: brightness(1.1); }
+.bb-buy:hover { transform: translateY(-2px); filter: drop-shadow(0 0 14px rgba(255,200,80,0.7)); }
 .bb-buy:active { transform: translateY(1px); }
-.bb-buy:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-  filter: grayscale(0.7);
-}
+.bb-buy:disabled,
 .bb-option.disabled .bb-buy {
   cursor: not-allowed;
-  opacity: 0.5;
-  filter: grayscale(0.7);
+  background-image: url("assets/btn-buy-disabled.png");
+  filter: none;
 }
+.bb-buy:disabled:hover,
+.bb-option.disabled .bb-buy:hover { transform: none; filter: none; }
 
 /* ============================================================
    Buy Free Spins confirmation modal
@@ -1100,22 +1034,31 @@ button:active img {
 
 .bb-confirm {
   position: relative;
-  width: 580px;
-  padding: 40px 40px 60px;
+  width: 800px;
+  padding: 0;
   background: transparent;
   text-align: center;
   animation: modalIn 0.3s cubic-bezier(.3,1.4,.4,1);
 }
+/* Confirmation jar PNG is 1024x1024 (square) — keep container square so the
+   jar shape renders correctly. Content placed in the upper jar cavity. */
 .bb-confirm-jar {
   position: relative;
-  padding: 30px 40px;
-  background:
-    radial-gradient(ellipse at center top, rgba(150, 200, 230, 0.25) 0%, rgba(60, 90, 130, 0.55) 70%);
-  border: 2px solid rgba(150, 200, 230, 0.5);
-  border-radius: 18px;
-  box-shadow:
-    0 0 30px rgba(120, 180, 230, 0.4),
-    inset 0 0 18px rgba(200, 230, 255, 0.15);
+  width: 620px;
+  height: 620px;
+  padding: 200px 180px 60px;
+  background-image: url("assets/confirm-jar.png");
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  box-sizing: border-box;
 }
 .bb-confirm-amount {
   font-size: 42px;
@@ -1140,28 +1083,23 @@ button:active img {
 }
 .bb-confirm-back,
 .bb-confirm-ok {
-  padding: 10px 36px;
-  font-size: 18px;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  color: #ffffff;
-  border-radius: 10px;
-  border: 2px solid;
+  width: 180px;
+  height: 64px;
+  font-size: 0;
+  color: transparent;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  border: 0;
+  border-radius: 0;
   cursor: pointer;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
   transition: transform 0.12s ease, filter 0.12s ease;
-  box-shadow: 0 3px 8px rgba(0,0,0,0.5);
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
 }
-.bb-confirm-back {
-  background: linear-gradient(180deg, #a35bc4 0%, #6a3a90 100%);
-  border-color: #c084dd;
-}
-.bb-confirm-ok {
-  background: linear-gradient(180deg, #f5b73d 0%, #d4961f 50%, #a26d18 100%);
-  border-color: #ffe066;
-}
+.bb-confirm-back { background-image: url("assets/btn-back.png"); }
+.bb-confirm-ok   { background-image: url("assets/btn-ok.png");   }
 .bb-confirm-back:hover,
-.bb-confirm-ok:hover { transform: translateY(-2px); filter: brightness(1.1); }
+.bb-confirm-ok:hover { transform: translateY(-2px); filter: drop-shadow(0 0 14px rgba(255,200,80,0.7)); }
 .bb-confirm-back:active,
 .bb-confirm-ok:active { transform: translateY(1px); }
 
@@ -1205,32 +1143,21 @@ button:active img {
   margin-left: auto;
   margin-right: auto;
 }
+/* ACTIVATE button = rendered btn-activate PNG (large green/gold ornate). */
 .ws-activate {
   display: inline-block;
-  padding: 14px 56px;
-  font-size: 22px;
-  font-weight: 900;
-  letter-spacing: 0.12em;
-  color: #ffffff;
-  background: linear-gradient(180deg, #f5b73d 0%, #d4961f 50%, #a26d18 100%);
-  border: 3px solid #ffe066;
-  border-radius: 14px;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.4),
-    0 4px 12px rgba(0,0,0,0.5),
-    0 0 24px rgba(255,200,80,0.5);
+  width: 280px;
+  height: 90px;
+  background: url("assets/btn-activate.png") center/contain no-repeat;
+  border: 0;
+  font-size: 0;
+  color: transparent;
   cursor: pointer;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
   margin-bottom: 24px;
-  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  transition: transform 0.12s ease, filter 0.12s ease;
+  filter: drop-shadow(0 4px 10px rgba(0,0,0,0.6));
 }
-.ws-activate:hover {
-  transform: translateY(-2px);
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.4),
-    0 6px 16px rgba(0,0,0,0.5),
-    0 0 32px rgba(255,220,100,0.7);
-}
+.ws-activate:hover { transform: translateY(-2px); filter: drop-shadow(0 0 18px rgba(255,200,80,0.8)); }
 .ws-activate:active { transform: translateY(1px); }
 .ws-bet {
   display: flex;
@@ -1238,17 +1165,24 @@ button:active img {
   justify-content: center;
   gap: 24px;
 }
+/* Bet arrows = rendered arrow-left/right PNGs (gold triangle with teal inlay). */
 .ws-bet-btn {
-  width: 44px;
-  height: 44px;
-  background: transparent;
+  width: 56px;
+  height: 56px;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
   border: 0;
-  font-size: 32px;
-  color: #f5b73d;
+  font-size: 0;
+  color: transparent;
   cursor: pointer;
-  filter: drop-shadow(0 2px 3px rgba(0,0,0,0.5));
+  transition: transform 0.12s ease, filter 0.12s ease;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
 }
-.ws-bet-btn:hover { color: #ffe066; }
+#wsBetDown, #bbBetDown { background-image: url("assets/arrow-left.png"); }
+#wsBetUp,   #bbBetUp   { background-image: url("assets/arrow-right.png"); }
+.ws-bet-btn:hover { transform: scale(1.1); filter: drop-shadow(0 0 12px rgba(255,200,80,0.8)); }
+.ws-bet-btn:active { transform: scale(0.95); }
 .ws-bet-info {
   display: flex;
   flex-direction: column;
