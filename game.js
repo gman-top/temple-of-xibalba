@@ -180,10 +180,23 @@
     return g;
   }
 
+  // Cells are organized per column: .reels > .reel-col[0..4] > .reel-track > .cell[0..6]
+  // During spin, preroll .cell.preroll elements are prepended to the track and
+  // the track is translated to slide them through the visible window.
+  const reelCols = [];   // per-col { col, track, cells: [7] }
+
   function buildCells() {
     reelsEl.innerHTML = "";
-    for (let r = 0; r < ROWS; r++) {
-      for (let c = 0; c < COLS; c++) {
+    reelCols.length = 0;
+    for (let c = 0; c < COLS; c++) {
+      const col = document.createElement("div");
+      col.className = "reel-col";
+      col.dataset.col = c;
+      const track = document.createElement("div");
+      track.className = "reel-track";
+      col.appendChild(track);
+      const cells = [];
+      for (let r = 0; r < ROWS; r++) {
         const cell = document.createElement("div");
         cell.className = "cell";
         cell.dataset.row = r;
@@ -197,11 +210,25 @@
         cell.appendChild(sym);
         cell.appendChild(badge);
         cell.appendChild(mult);
-        reelsEl.appendChild(cell);
+        track.appendChild(cell);
+        cells.push(cell);
       }
+      reelsEl.appendChild(col);
+      reelCols.push({ col, track, cells });
     }
   }
-  function cellAt(r, c) { return reelsEl.children[r * COLS + c]; }
+  function cellAt(r, c) { return reelCols[c].cells[r]; }
+  function colTrack(c) { return reelCols[c].track; }
+  function allCells() {
+    const out = [];
+    for (const rc of reelCols) for (const cell of rc.cells) out.push(cell);
+    return out;
+  }
+  function cellHeightPx() {
+    // Use track-relative measurement so it works at any scale
+    return reelCols[0].cells[0].getBoundingClientRect().height /
+           (stage.getBoundingClientRect().width / 1920);
+  }
 
   function paintCell(r, c) {
     const cell = cellAt(r, c);
@@ -210,7 +237,7 @@
     const multEl = cell.querySelector(".multiplier");
     const v = state.grid[r][c];
 
-    cell.classList.remove("scatter", "wild", "booster", "destroyer");
+    cell.classList.remove("scatter", "wild", "booster", "destroyer", "mult-only", "has-mult", "has-mult-high");
 
     if (!v) {
       sym.style.opacity = "0";
@@ -239,8 +266,12 @@
     const m = state.cellMult[r][c];
     if (m && m > 0) {
       multEl.textContent = `×${m}`;
-      multEl.style.display = "block";
+      multEl.style.display = "flex";
       multEl.classList.toggle("big", m >= 8);
+      // Lavender highlight on cells with an active multiplier
+      cell.classList.add(m >= 6 ? "has-mult-high" : "has-mult");
+      // If the cell has no symbol (empty + multiplier), render as a gold medallion
+      if (!v) cell.classList.add("mult-only");
     } else {
       multEl.textContent = "";
       multEl.style.display = "none";
@@ -463,35 +494,71 @@
     setTimeout(() => burst.remove(), 600);
   }
 
-  async function animateSpinIn(initialGrid) {
-    // Mark spinning, run ticker swap
-    for (const cell of reelsEl.children) cell.classList.add("spinning");
-    const tickers = [];
-    for (const cell of reelsEl.children) {
-      const sym = cell.querySelector(".symbol");
-      sym.style.opacity = "1";
-      const id = setInterval(() => {
-        const rnd = Math.floor(Math.random() * REG_ASSETS.length);
-        sym.style.backgroundImage = `url("assets/${REG_ASSETS[rnd]}.png")`;
-      }, 55 + Math.random() * 40);
-      tickers.push(id);
-    }
-    await ffWait(600);
+  // Build a preroll cell (random reg symbol) for the spin animation
+  function makePrerollCell() {
+    const cell = document.createElement("div");
+    cell.className = "cell preroll";
+    const sym = document.createElement("div");
+    sym.className = "symbol";
+    const idx = Math.floor(Math.random() * REG_ASSETS.length);
+    sym.style.backgroundImage = `url("assets/${REG_ASSETS[idx]}.png")`;
+    sym.style.opacity = "1";
+    cell.appendChild(sym);
+    return cell;
+  }
 
+  // Smooth column-wise reel spin: for each column, append N preroll cells
+  // BELOW the 7 real cells, set translateY to -(N * cellH) so the prerolls
+  // are initially visible in the viewport, then ease the track down to 0
+  // so the real cells settle in. Columns decelerate left-to-right.
+  async function animateSpinIn(initialGrid) {
     state.grid = initialGrid;
+
+    const PREROLL = 16;
+    const cellH = cellHeightPx() || (681 / ROWS);
+    const offset = PREROLL * cellH;
+
+    // 1. Paint the final symbols into the existing 7 cells (they're invisible
+    //    while translated above the viewport)
     for (let c = 0; c < COLS; c++) {
-      for (let r = 0; r < ROWS; r++) {
-        const idx = r * COLS + c;
-        clearInterval(tickers[idx]);
-        const cell = reelsEl.children[idx];
-        cell.classList.remove("spinning");
-        cell.classList.add("dropping");
-        paintCell(r, c);
-      }
-      await ffWait(85);
+      for (let r = 0; r < ROWS; r++) paintCell(r, c);
     }
-    await ffWait(150);
-    for (const cell of reelsEl.children) cell.classList.remove("dropping");
+
+    // 2. Append preroll cells below the real cells in each column
+    for (let c = 0; c < COLS; c++) {
+      const track = colTrack(c);
+      for (let i = 0; i < PREROLL; i++) {
+        track.appendChild(makePrerollCell());
+      }
+      // Position track so prerolls are visible (real cells above viewport)
+      track.style.transition = "none";
+      track.style.transform = `translateY(${-offset}px)`;
+      void track.offsetHeight;   // force reflow
+      track.classList.add("spinning");
+    }
+
+    // 3. Animate each column down to translateY(0) with staggered duration
+    const baseDuration = 700;
+    const colDelay = 110;
+    for (let c = 0; c < COLS; c++) {
+      const track = colTrack(c);
+      const duration = baseDuration + c * colDelay;
+      track.style.transition = `transform ${duration}ms cubic-bezier(0.22, 0.62, 0.18, 1)`;
+      track.style.transform = "translateY(0)";
+    }
+
+    const totalDuration = baseDuration + (COLS - 1) * colDelay + 80;
+    await ffWait(totalDuration);
+
+    // 4. Cleanup: remove preroll cells, clear transforms
+    for (let c = 0; c < COLS; c++) {
+      const track = colTrack(c);
+      track.classList.remove("spinning");
+      const prerolls = Array.from(track.querySelectorAll(".cell.preroll"));
+      for (const p of prerolls) p.remove();
+      track.style.transition = "";
+      track.style.transform = "";
+    }
   }
 
   async function animateMatched(cells, isWild = false) {
@@ -522,10 +589,10 @@
 
   async function animateCascade() {
     cascade(state.grid);
-    for (const cell of reelsEl.children) cell.classList.add("dropping");
+    for (const cell of allCells()) cell.classList.add("dropping");
     paintAll();
     await ffWait(330);
-    for (const cell of reelsEl.children) cell.classList.remove("dropping");
+    for (const cell of allCells()) cell.classList.remove("dropping");
   }
 
   // ---- dig-up application ----------------------------------------------------

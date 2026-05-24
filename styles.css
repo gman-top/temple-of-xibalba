@@ -88,27 +88,48 @@ html, body {
   pointer-events: none;
 }
 
-/* Reel grid: 5 cols x 7 rows of 97.16px cells, starting at (709, 106) inside the frame */
+/* Reel grid: 5 columns, each is a clip window with a sliding track of 7
+   visible cells. During spin, extra preroll cells get prepended above the
+   visible area and the track is translated down to scroll through them. */
 .reels {
   position: absolute;
   left: 709px;
   top: 106px;
-  width: 502px;     /* 5 * 100 + 2 gap left? matches Figma 501.78 */
-  height: 681px;    /* 7 * 97.16 + spacing */
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  grid-template-rows: repeat(7, 1fr);
+  width: 502px;
+  height: 681px;
+  display: flex;
   gap: 0;
   z-index: 7;
-  perspective: 800px;
+}
+
+.reel-col {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+}
+
+.reel-track {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  will-change: transform;
 }
 
 .cell {
   position: relative;
+  flex: 0 0 97.286px; /* 681 / 7 ≈ 97.28px per cell */
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
+}
+
+.cell.preroll {
+  /* same visual as a regular cell but doesn't participate in clicks/state */
+  pointer-events: none;
 }
 
 .symbol {
@@ -121,17 +142,12 @@ html, body {
   filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
 }
 
-/* Spin: per-cell symbol is swapped rapidly from JS; CSS just adds a motion blur
-   so the swaps read as a moving reel rather than a flickering image. */
-.cell.spinning .symbol {
-  filter: blur(0.5px) drop-shadow(0 4px 6px rgba(0,0,0,0.5));
-  animation: reelBlur 0.18s linear infinite;
+/* Strip ease used when slowing the track down to its final position */
+.reel-track.spinning {
+  transition: transform 0.85s cubic-bezier(0.22, 0.85, 0.25, 1);
 }
-
-@keyframes reelBlur {
-  0%   { transform: translateY(-12%); }
-  50%  { transform: translateY(0); }
-  100% { transform: translateY(12%); }
+.reel-track.spinning .symbol {
+  filter: blur(1px) drop-shadow(0 4px 6px rgba(0,0,0,0.5));
 }
 
 .cell.matched .symbol {
@@ -442,25 +458,55 @@ button:active img {
    Cell overlays: multiplier badge + special-symbol badge
    ============================================================ */
 
+/* Cells with active cell multipliers get a lavender tint, like the reference. */
+.cell.has-mult {
+  background: rgba(150, 110, 220, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(180, 140, 240, 0.35);
+}
+.cell.has-mult-high {
+  background: rgba(180, 130, 240, 0.30);
+  box-shadow:
+    inset 0 0 0 1px rgba(220, 170, 255, 0.55),
+    inset 0 0 14px rgba(180, 130, 240, 0.25);
+}
+
 .cell .multiplier {
   position: absolute;
-  top: 2px;
-  right: 2px;
+  inset: 0;
   z-index: 8;
-  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
   font-weight: 900;
-  color: #ffe066;
+  color: #ffae00;
   text-shadow:
-    0 0 6px #ff9a00,
-    0 0 12px rgba(255,150,0,0.7),
-    0 2px 3px rgba(0,0,0,0.9);
+    0 0 4px rgba(0,0,0,0.85),
+    0 1px 2px rgba(0,0,0,0.9),
+    0 0 8px rgba(255,150,0,0.4);
   letter-spacing: -0.04em;
   pointer-events: none;
   animation: multPop 0.4s cubic-bezier(.3,1.6,.5,1);
 }
 .cell .multiplier.big {
+  font-size: 26px;
+  color: #ffe066;
+}
+/* When a cell has only a multiplier (no symbol, like after a cluster explodes
+   and reveals a ×N marker), make it a gold medallion */
+.cell.mult-only .symbol { display: none; }
+.cell.mult-only .multiplier {
+  inset: 14%;
+  background:
+    radial-gradient(circle at 30% 30%, #ffe48a 0%, #f5b73d 35%, #b07520 75%, #5a3a08 100%);
+  color: #2a1500;
+  border-radius: 50%;
+  border: 3px solid #ffe48a;
   font-size: 22px;
-  color: #fff7c2;
+  text-shadow: 0 1px 1px rgba(255,255,255,0.4);
+  box-shadow:
+    inset 0 0 8px rgba(255,255,200,0.6),
+    0 0 14px rgba(255,200,80,0.7);
 }
 @keyframes multPop {
   from { transform: scale(0); opacity: 0; }
@@ -493,30 +539,34 @@ button:active img {
 }
 .cell.wild .badge {
   display: flex;
+  inset: 14%;
+  border-radius: 50%;
   background:
-    radial-gradient(circle at 30% 30%, #fff2a8 0%, #ffb949 35%, #b8651a 75%, #6b340a 100%);
+    radial-gradient(circle at 30% 30%, #ffe48a 0%, #f5b73d 35%, #b07520 75%, #5a3a08 100%);
   color: #2a1500;
-  border: 2px solid #ffe066;
+  border: 3px solid #ffe48a;
   box-shadow:
-    inset 0 0 12px rgba(255,255,200,0.5),
+    inset 0 0 10px rgba(255,255,200,0.6),
     0 0 16px rgba(255,200,80,0.8),
     0 0 30px rgba(255,150,0,0.5);
   animation: wildPulse 1.2s ease-in-out infinite alternate;
 }
 .cell.wild .badge::before {
-  content: "WILD";
-  font-size: 18px;
-  letter-spacing: 0.06em;
+  content: "W";
+  font-size: 30px;
+  font-weight: 900;
+  letter-spacing: 0;
   line-height: 1;
   text-shadow: 0 1px 1px rgba(255,255,255,0.4);
 }
 .cell.wild .badge::after {
   content: attr(data-mult);
-  font-size: 14px;
+  font-size: 11px;
   letter-spacing: 0;
   line-height: 1;
-  margin-top: 4px;
+  margin-top: 1px;
   color: #5a2a00;
+  font-weight: 700;
 }
 @keyframes wildPulse {
   from { box-shadow: inset 0 0 12px rgba(255,255,200,0.5), 0 0 12px rgba(255,200,80,0.7), 0 0 22px rgba(255,150,0,0.4); }
