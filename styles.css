@@ -408,24 +408,26 @@ button:active img {
 .bet-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
 }
+/* Bet +/− buttons use the rendered Aztec round gold PNGs */
 .bet-btn {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: linear-gradient(180deg, #3d2510, #1a0d05);
-  color: #ffe8a1;
-  border: 1px solid #6e4a1c;
-  font-size: 14px;
-  line-height: 1;
-  font-weight: 700;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  border: 0;
+  font-size: 0;
+  color: transparent;
+  cursor: pointer;
+  transition: transform 0.12s ease, filter 0.12s ease;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6));
 }
-.bet-btn:hover { filter: brightness(1.2); }
-.bet-btn:active { transform: translateY(1px); }
+#betDown { background-image: url("assets/minus.png"); }
+#betUp   { background-image: url("assets/plus.png"); }
+.bet-btn:hover { transform: scale(1.1); filter: drop-shadow(0 0 10px rgba(255,200,80,0.8)); }
+.bet-btn:active { transform: scale(0.95); }
 
 /* Win banner */
 .win-banner {
@@ -1039,56 +1041,52 @@ button:active img {
    stone surface — the asset looks better when it's the visual anchor). */
 .bb-confirm {
   position: relative;
-  width: 560px;
-  padding: 30px;
+  width: 520px;
+  padding: 20px;
   background: transparent;
   text-align: center;
   animation: modalIn 0.3s cubic-bezier(.3,1.4,.4,1);
   display: flex;
   flex-direction: column;
   align-items: center;
+  gap: 16px;
 }
+/* Jar is PURELY decorative — text/buttons live OUTSIDE on dark backdrop
+   for max readability, jar just adds visual flavor between them. */
 .bb-confirm-jar {
-  position: relative;
-  width: 480px;
-  height: 480px;
+  width: 240px;
+  height: 240px;
   background-image: url("assets/confirm-jar.png");
   background-size: contain;
   background-repeat: no-repeat;
-  background-position: center bottom;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  padding: 80px 80px 0;
-  gap: 16px;
-  box-sizing: border-box;
-  filter: drop-shadow(0 8px 30px rgba(0,0,0,0.7));
+  background-position: center;
+  filter: drop-shadow(0 8px 24px rgba(0,0,0,0.7));
+  margin: -8px 0;
 }
 .bb-confirm-amount {
-  font-size: 42px;
+  font-size: 52px;
   font-weight: 900;
   color: #ffffff;
-  text-shadow: 0 2px 6px rgba(0,0,0,0.8), 0 0 20px rgba(255,200,80,0.4);
+  text-shadow: 0 3px 8px rgba(0,0,0,0.95), 0 0 24px rgba(255,200,80,0.5);
   letter-spacing: -0.01em;
-  margin-bottom: 16px;
+  margin: 0;
+  line-height: 1;
 }
 .bb-confirm-desc {
-  margin: 0 0 24px;
-  font-size: 13px;
-  letter-spacing: 0.22em;
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
   color: #c9d8e8;
   text-transform: uppercase;
-  line-height: 1.5;
+  line-height: 1.4;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.9);
 }
 .bb-confirm-buttons {
   display: flex;
   gap: 24px;
   justify-content: center;
-  margin-top: -40px;
+  margin-top: 8px;
   position: relative;
   z-index: 2;
 }
