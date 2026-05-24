@@ -494,8 +494,8 @@
       paytableRows.innerHTML = '<div class="paytable-empty">No wins yet</div>';
       return;
     }
-    // Cap at 6 visible rows so the panel doesn't overflow
-    const visible = state.recentWins.slice(0, 6);
+    // Show up to 8 rows (as many as fit on the totem)
+    const visible = state.recentWins.slice(0, 8);
     paytableRows.innerHTML = "";
     for (const w of visible) {
       const row = document.createElement("div");
