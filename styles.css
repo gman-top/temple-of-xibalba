@@ -775,26 +775,34 @@ button:active img {
    Free Spins banner (top of slot)
    ============================================================ */
 
+/* FS banner uses the rendered special-asset1.png horizontal ornate frame.
+   Aspect ratio of the asset is ~5:1 landscape — width:height = 660:130. */
 .fs-banner {
   position: absolute;
-  left: 700px;
-  top: 32px;
-  width: 520px;
+  left: 660px;
+  top: 22px;
+  width: 660px;
+  height: 130px;
   z-index: 14;
   display: none;
   flex-direction: column;
-  gap: 4px;
-  padding: 10px 20px;
-  background: linear-gradient(180deg, rgba(40,18,4,0.92), rgba(20,10,2,0.95));
-  border: 2px solid #d6a14a;
-  border-radius: 12px;
-  box-shadow: 0 0 24px rgba(255,180,60,0.5), inset 0 0 14px rgba(255,200,80,0.2);
-  animation: fsGlow 1.5s ease-in-out infinite alternate;
+  justify-content: center;
+  gap: 6px;
+  padding: 24px 90px;
+  background-image: url("assets/special-asset1.png");
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  box-sizing: border-box;
+  filter: drop-shadow(0 4px 16px rgba(0,0,0,0.6));
+  animation: fsGlow 1.8s ease-in-out infinite alternate;
 }
 .fs-banner.visible { display: flex; }
 @keyframes fsGlow {
-  from { box-shadow: 0 0 18px rgba(255,180,60,0.4), inset 0 0 14px rgba(255,200,80,0.2); }
-  to   { box-shadow: 0 0 32px rgba(255,210,80,0.8), inset 0 0 20px rgba(255,220,100,0.4); }
+  from { filter: drop-shadow(0 4px 14px rgba(0,0,0,0.6)) drop-shadow(0 0 12px rgba(255,180,60,0.4)); }
+  to   { filter: drop-shadow(0 4px 14px rgba(0,0,0,0.6)) drop-shadow(0 0 28px rgba(255,220,100,0.9)); }
 }
 .fs-banner-row {
   display: flex;
@@ -803,16 +811,18 @@ button:active img {
   gap: 16px;
 }
 .fs-label {
-  font-size: 14px;
+  font-size: 16px;
   letter-spacing: 0.22em;
   color: #d6a14a;
   text-transform: uppercase;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.9);
 }
 .fs-value {
-  font-size: 22px;
-  font-weight: 800;
+  font-size: 26px;
+  font-weight: 900;
   color: #ffe8a1;
-  text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+  text-shadow: 0 2px 4px rgba(0,0,0,0.9), 0 0 10px rgba(255,200,80,0.4);
+  letter-spacing: -0.01em;
 }
 
 /* ============================================================
@@ -1276,43 +1286,52 @@ button:active img {
    Bonus Active panel (shown on the left during FS round)
    ============================================================ */
 
+/* BONUS ACTIVE panel — moved from left totem to RIGHT side, under the
+   character. Uses the rendered right-special-asset-2.png as the frame
+   (teal/gold Aztec rounded panel). */
 .bonus-active-panel {
   position: absolute;
-  left: 100px;
-  top: 460px;
-  width: 200px;
+  right: 30px;
+  top: 470px;
+  width: 320px;
+  height: 150px;
   z-index: 9;
   display: none;
   flex-direction: column;
   align-items: center;
-  padding: 14px 12px;
-  background:
-    linear-gradient(180deg, rgba(70, 100, 150, 0.85), rgba(30, 50, 90, 0.92));
-  border: 2px solid #7ab7d8;
-  border-radius: 12px;
-  box-shadow:
-    0 0 24px rgba(120, 180, 240, 0.5),
-    inset 0 0 10px rgba(150, 220, 255, 0.2);
-  animation: baGlow 2s ease-in-out infinite alternate;
+  justify-content: center;
+  padding: 30px 38px;
+  background-image: url("assets/right-special-asset-2.png");
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  box-sizing: border-box;
+  filter: drop-shadow(0 4px 16px rgba(0,0,0,0.6));
+  animation: baGlow 2.2s ease-in-out infinite alternate;
 }
 .bonus-active-panel.visible { display: flex; }
 @keyframes baGlow {
-  from { box-shadow: 0 0 18px rgba(120, 180, 240, 0.4), inset 0 0 10px rgba(150, 220, 255, 0.2); }
-  to   { box-shadow: 0 0 28px rgba(150, 200, 255, 0.7), inset 0 0 14px rgba(180, 240, 255, 0.35); }
+  from { filter: drop-shadow(0 4px 14px rgba(0,0,0,0.6)) drop-shadow(0 0 12px rgba(120, 200, 220, 0.4)); }
+  to   { filter: drop-shadow(0 4px 14px rgba(0,0,0,0.6)) drop-shadow(0 0 22px rgba(150, 230, 240, 0.8)); }
 }
 .ba-label {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 800;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.2em;
   color: #ffe066;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.8);
-  margin-bottom: 4px;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+  margin-bottom: 6px;
+  text-transform: uppercase;
 }
 .ba-value {
-  font-size: 22px;
+  font-size: 28px;
   font-weight: 900;
   color: #ffffff;
-  text-shadow: 0 1px 3px rgba(0,0,0,0.8), 0 0 12px rgba(255, 220, 100, 0.5);
+  text-shadow: 0 2px 4px rgba(0,0,0,0.9), 0 0 14px rgba(255, 220, 100, 0.5);
+  letter-spacing: -0.01em;
+  line-height: 1;
 }
 
 .auto-options {
