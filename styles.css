@@ -828,20 +828,20 @@ button:active img {
   backdrop-filter: blur(2px);
 }
 .modal-backdrop.visible { display: flex; }
-/* Modal panel = rendered stone-tablet PNG with carved gold border. The image's
-   natural aspect is ~4:3 LANDSCAPE; we constrain the modal to that ratio so
-   the carved border renders without distortion. */
+/* Modals use a clean dark backdrop (BGaming reference style) — NO carved
+   stone tablet wrapper. The previous attempt stretched modal-panel-bg.png
+   over every modal which looked off because the asset has fixed 4:3 aspect
+   that doesn't match different content sizes. Per-modal classes handle
+   their own framing (e.g. .bb-confirm-jar uses the jar PNG). */
 .modal {
   position: relative;
-  width: 760px;
-  min-height: 560px;
-  padding: 80px 100px 60px;
-  background-image: url("assets/modal-panel-bg.png");
-  background-size: 100% 100%;
-  background-repeat: no-repeat;
+  min-width: 480px;
+  max-width: 900px;
+  padding: 50px 60px 40px;
+  background: transparent;
   border: 0;
   border-radius: 0;
-  box-shadow: 0 0 60px rgba(255,180,60,0.45);
+  box-shadow: none;
   color: #f4e4b1;
   text-align: center;
   animation: modalIn 0.3s cubic-bezier(.3,1.4,.4,1);
@@ -851,45 +851,44 @@ button:active img {
   from { transform: scale(0.85); opacity: 0; }
   to   { transform: scale(1); opacity: 1; }
 }
-/* Close X = the rendered btn-close-x PNG (round gold Aztec button with X) */
+/* Close X positioned at the modal's own top-right corner. Since the modal
+   no longer has a visible frame, it floats with proper spacing. */
 .modal-close {
   position: absolute;
-  top: 18px;
-  right: 22px;
-  width: 50px;
-  height: 50px;
+  top: 0;
+  right: 0;
+  width: 56px;
+  height: 56px;
   background: url("assets/btn-close-x.png") center/contain no-repeat;
   border: 0;
   font-size: 0;
   color: transparent;
   cursor: pointer;
   transition: transform 0.12s ease, filter 0.12s ease;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,0.7));
   z-index: 5;
 }
-.modal-close:hover { transform: scale(1.1); filter: drop-shadow(0 0 12px rgba(255,200,80,0.8)); }
-/* Modal titles now use rendered 3D-text PNGs. The text-based fallback below
-   is for any modal that doesn't have an art asset yet. */
+.modal-close:hover { transform: scale(1.1); filter: drop-shadow(0 0 14px rgba(255,200,80,0.9)); }
 .modal-title {
-  margin: 0 0 8px;
+  margin: 0 0 16px;
   font-size: 32px;
   letter-spacing: 0.18em;
   color: #ffe8a1;
   text-shadow: 0 2px 6px rgba(0,0,0,0.7), 0 0 16px rgba(255,180,60,0.4);
 }
-/* Title artwork is 1024x1024 PNG with the text occupying the central area
-   and transparent whitespace around. Container is sized to give the text
-   visible presence; background-size: contain preserves text aspect. */
+/* Title artwork — bigger so 1024x1024 PNG (with text central, whitespace
+   around) renders the text at a readable size. */
 .modal-title.art {
   background-size: contain;
   background-repeat: no-repeat;
   background-position: center;
   font-size: 0;
   color: transparent;
-  width: 360px;
-  height: 180px;
-  margin: -20px auto 8px;
-  filter: drop-shadow(0 4px 12px rgba(0,0,0,0.7));
+  width: 100%;
+  max-width: 520px;
+  height: 220px;
+  margin: 0 auto 20px;
+  filter: drop-shadow(0 4px 14px rgba(0,0,0,0.85));
 }
 .modal-title.art-wild-spin       { background-image: url("assets/title-wild-spin.png"); }
 .modal-title.art-buy-free-spins  { background-image: url("assets/title-buy-free-spins.png"); }
@@ -908,13 +907,15 @@ button:active img {
    each card has its label, cost, and BUY button. Bet selector below.
    ============================================================ */
 
-/* Buy FS modal is wider to fit 4 cards in 2x2 with comfortable spacing,
-   but capped at viewport height so the close X stays visible. */
+/* Buy FS modal — wide enough for 4 cards in 2x2 with comfortable spacing.
+   No stone-tablet wrapper (BGaming reference uses a clean dark backdrop). */
 .bb-modal {
-  width: 1080px;
-  min-height: 820px;
-  max-height: 1040px;
-  padding: 90px 110px 70px;
+  width: 980px;
+  max-width: 980px;
+  min-height: auto;
+  max-height: none;
+  padding: 30px 40px 30px;
+  background: transparent;
 }
 .bb-title {
   font-size: 38px;
@@ -945,13 +946,13 @@ button:active img {
 /* Each buy option = rendered card-buy-option-bg PNG (ornate Aztec stone
    frame). The frame eats ~20% of the asset on each side, so content uses
    generous padding to stay inside the inner stone field. */
-/* Card PNG is 1254x1254 (square) — make card square so the carved border
-   renders correctly without horizontal distortion. */
+/* Card PNG is 1254x1254 (square) — keep square aspect so the carved border
+   renders correctly. */
 .bb-option {
   position: relative;
-  width: 380px;
-  height: 380px;
-  padding: 64px 48px 48px;
+  width: 320px;
+  height: 320px;
+  padding: 50px 38px 38px;
   background-image: url("assets/card-buy-option-bg.png");
   background-size: 100% 100%;
   background-repeat: no-repeat;
@@ -961,7 +962,8 @@ button:active img {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
+  gap: 4px;
   box-sizing: border-box;
   margin: 0 auto;
 }
@@ -1032,33 +1034,39 @@ button:active img {
    Buy Free Spins confirmation modal
    ============================================================ */
 
+/* Confirmation = the jar PNG floating in dark backdrop. Contents (amount,
+   text, buttons) are positioned ABOVE the jar (no overlay on the jar's
+   stone surface — the asset looks better when it's the visual anchor). */
 .bb-confirm {
   position: relative;
-  width: 800px;
-  padding: 0;
+  width: 560px;
+  padding: 30px;
   background: transparent;
   text-align: center;
   animation: modalIn 0.3s cubic-bezier(.3,1.4,.4,1);
-}
-/* Confirmation jar PNG is 1024x1024 (square) — keep container square so the
-   jar shape renders correctly. Content placed in the upper jar cavity. */
-.bb-confirm-jar {
-  position: relative;
-  width: 620px;
-  height: 620px;
-  padding: 200px 180px 60px;
-  background-image: url("assets/confirm-jar.png");
-  background-size: 100% 100%;
-  background-repeat: no-repeat;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-  margin: 0 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 18px;
+}
+.bb-confirm-jar {
+  position: relative;
+  width: 480px;
+  height: 480px;
+  background-image: url("assets/confirm-jar.png");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center bottom;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 80px 80px 0;
+  gap: 16px;
   box-sizing: border-box;
+  filter: drop-shadow(0 8px 30px rgba(0,0,0,0.7));
 }
 .bb-confirm-amount {
   font-size: 42px;
@@ -1078,8 +1086,11 @@ button:active img {
 }
 .bb-confirm-buttons {
   display: flex;
-  gap: 18px;
+  gap: 24px;
   justify-content: center;
+  margin-top: -40px;
+  position: relative;
+  z-index: 2;
 }
 .bb-confirm-back,
 .bb-confirm-ok {
@@ -1212,88 +1223,48 @@ button:active img {
    Free Spins trigger modal (announcement)
    ============================================================ */
 
+/* FS trigger = the rendered fs-trigger-screen PNG which is a complete
+   celebration scene ("YOU HAVE TRIGGERED FREE SPINS" + CONTINUE built in).
+   We size the container to the asset's aspect (~1.5:1 landscape) and
+   overlay the dynamic spin count + a small click-to-continue hint. */
 .fs-trigger {
   position: relative;
-  width: 640px;
-  padding: 60px 50px;
-  background:
-    radial-gradient(ellipse at center, rgba(80, 50, 130, 0.7) 0%, rgba(20, 10, 30, 0.95) 70%);
-  border-radius: 20px;
+  width: 900px;
+  height: 600px;
+  background: url("assets/fs-trigger-screen.png") center/contain no-repeat;
   text-align: center;
-  animation: modalIn 0.4s cubic-bezier(.3,1.4,.4,1);
-  box-shadow: 0 0 100px rgba(180, 130, 240, 0.6);
-}
-.fs-trigger-title {
-  margin: 0 0 40px;
-  font-size: 48px;
-  letter-spacing: 0.08em;
-  background: linear-gradient(180deg, #ffe066 0%, #ffae00 50%, #c47a00 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.7));
-}
-.fs-trigger-row {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 28px;
-  margin-bottom: 32px;
-}
-.fs-trigger-medallions {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.fs-medallion {
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at 30% 30%, #ffe48a 0%, #f5b73d 35%, #b07520 75%, #5a3a08 100%);
-  border: 2px solid #ffe066;
-  box-shadow: 0 0 14px rgba(255, 200, 80, 0.7);
-  background-image: url("assets/symbol01.png");
-  background-size: 70%;
-  background-position: center;
-  background-repeat: no-repeat, no-repeat;
-  background-blend-mode: overlay, normal;
+  animation: modalIn 0.5s cubic-bezier(.3,1.4,.4,1);
+  cursor: pointer;
+  filter: drop-shadow(0 10px 40px rgba(0,0,0,0.7));
 }
 .fs-trigger-count {
-  font-size: 110px;
+  position: absolute;
+  /* Positioned over the empty space below the CONTINUE button in the asset */
+  top: 76%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 28px;
   font-weight: 900;
-  color: #ffffff;
+  color: #ffe066;
   line-height: 1;
-  text-shadow:
-    0 4px 10px rgba(0,0,0,0.8),
-    0 0 30px rgba(255, 200, 80, 0.6);
-  letter-spacing: -0.02em;
+  text-shadow: 0 2px 6px rgba(0,0,0,0.9), 0 0 12px rgba(255,200,80,0.6);
+  letter-spacing: 0.1em;
 }
-.fs-trigger-retriggers {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+.fs-trigger-count::after {
+  content: " SPINS";
+  font-size: 18px;
+  letter-spacing: 0.2em;
+  color: #c9b88a;
 }
-.fs-retrig {
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at 30% 30%, rgba(80,120,140,0.95) 0%, rgba(40,80,100,1) 70%);
-  border: 2px solid rgba(120, 180, 200, 0.8);
-  color: #b8e0f0;
-  font-size: 22px;
-  font-weight: 800;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
-}
-.fs-trigger-cta {
+.fs-trigger-cta-hint {
+  position: absolute;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
   margin: 0;
-  font-size: 15px;
-  letter-spacing: 0.32em;
-  color: #ffffff;
+  font-size: 13px;
+  letter-spacing: 0.3em;
+  color: #c9b88a;
   text-transform: uppercase;
   opacity: 0.85;
   animation: ctaBlink 1.4s ease-in-out infinite alternate;
