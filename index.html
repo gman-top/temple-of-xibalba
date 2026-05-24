@@ -120,10 +120,10 @@
           <div class="bb-confirm-jar">
             <div class="bb-confirm-amount" id="bbConfirmAmount">0.00 ETH</div>
             <p class="bb-confirm-desc">WILL BE SUBTRACTED<br/>FROM YOUR BALANCE</p>
-            <div class="bb-confirm-buttons">
-              <button class="bb-confirm-back" id="bbConfirmBack" type="button">Back</button>
-              <button class="bb-confirm-ok" id="bbConfirmOk" type="button">OK</button>
-            </div>
+          </div>
+          <div class="bb-confirm-buttons">
+            <button class="bb-confirm-back" id="bbConfirmBack" type="button">Back</button>
+            <button class="bb-confirm-ok" id="bbConfirmOk" type="button">OK</button>
           </div>
         </div>
       </div>
@@ -150,21 +150,11 @@
 
       <div class="modal-backdrop" id="fsTriggerModal" aria-hidden="true">
         <div class="fs-trigger" role="dialog" aria-label="Free Spins">
-          <h2 class="fs-trigger-title">FREE SPINS</h2>
-          <div class="fs-trigger-row">
-            <div class="fs-trigger-medallions">
-              <div class="fs-medallion"></div>
-              <div class="fs-medallion"></div>
-              <div class="fs-medallion"></div>
-            </div>
-            <div class="fs-trigger-count" id="fsTriggerCount">10</div>
-            <div class="fs-trigger-retriggers">
-              <div class="fs-retrig">+5</div>
-              <div class="fs-retrig">+3</div>
-              <div class="fs-retrig">+2</div>
-            </div>
-          </div>
-          <p class="fs-trigger-cta">CLICK TO CONTINUE</p>
+          <!-- fs-trigger-screen.png has the title "YOU HAVE TRIGGERED FREE
+               SPINS" + a CONTINUE button artwork baked in. We just overlay
+               the spin count in the right place. -->
+          <div class="fs-trigger-count" id="fsTriggerCount">10</div>
+          <p class="fs-trigger-cta-hint">CLICK ANYWHERE TO START</p>
         </div>
       </div>
 
