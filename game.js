@@ -502,6 +502,62 @@
     setTimeout(() => burst.remove(), 600);
   }
 
+  // Convert a viewport rect into stage-local coords (un-scaled)
+  function stageCoords(rect) {
+    const sr = stage.getBoundingClientRect();
+    const sc = sr.width / 1920;
+    return {
+      x: (rect.left - sr.left) / sc + (rect.width / sc) / 2,
+      y: (rect.top - sr.top) / sc + (rect.height / sc) / 2,
+    };
+  }
+
+  // Win amount flies from a cluster's centroid toward the recent-wins panel,
+  // following a slight arc, then dissolves into the panel header.
+  function flyWinToPanel(cells, symIdx, amount) {
+    // Centroid of cluster cells
+    let cx = 0, cy = 0;
+    for (const [r, c] of cells) {
+      const p = stageCoords(cellAt(r, c).getBoundingClientRect());
+      cx += p.x; cy += p.y;
+    }
+    cx /= cells.length;
+    cy /= cells.length;
+
+    const target = stageCoords(paytableRows.getBoundingClientRect());
+
+    const flyout = document.createElement("div");
+    flyout.className = "fly-win";
+    flyout.innerHTML =
+      `<div class="fly-icon" style="background-image:url('assets/${REG_ASSETS[symIdx]}.png')"></div>` +
+      `<div class="fly-amount">+${amount.toFixed(2)}</div>`;
+    // Start position
+    flyout.style.left = "0px";
+    flyout.style.top = "0px";
+    flyout.style.transform = `translate(${cx}px, ${cy}px) translate(-50%, -50%) scale(0.6)`;
+    flyout.style.opacity = "0";
+    stage.appendChild(flyout);
+
+    const dx = target.x - cx;
+    const dy = target.y - cy;
+    // Arc control point: slightly above the midpoint
+    const midX = cx + dx * 0.4;
+    const midY = cy + dy * 0.4 - 80;
+
+    const dur = state.fastForward ? 280 : 750;
+    flyout.animate(
+      [
+        { transform: `translate(${cx}px, ${cy}px) translate(-50%, -50%) scale(0.6)`,  opacity: 0,  offset: 0 },
+        { transform: `translate(${cx}px, ${cy - 30}px) translate(-50%, -50%) scale(1.25)`, opacity: 1, offset: 0.16 },
+        { transform: `translate(${midX}px, ${midY}px) translate(-50%, -50%) scale(1.1)`, opacity: 1, offset: 0.55 },
+        { transform: `translate(${target.x}px, ${target.y}px) translate(-50%, -50%) scale(0.7)`, opacity: 0.85, offset: 0.92 },
+        { transform: `translate(${target.x}px, ${target.y}px) translate(-50%, -50%) scale(0.4)`, opacity: 0, offset: 1 },
+      ],
+      { duration: dur, easing: "cubic-bezier(0.3, 0, 0.4, 1)", fill: "forwards" }
+    );
+    setTimeout(() => flyout.remove(), dur + 60);
+  }
+
   // Build a preroll cell (random reg symbol) for the spin animation
   function makePrerollCell() {
     const cell = document.createElement("div");
@@ -546,9 +602,11 @@
       void track.offsetHeight;
     }
 
-    // Total spin duration: fast & snappy
-    const BASE = 480;
-    const COL_STAGGER = 60;
+    // Longer spin with visible deceleration (~1200ms base + per-col stagger).
+    // Curve: fast linear scroll for first ~40% (most distance covered),
+    // then a long visible deceleration for ~50%, ending with a tiny overshoot.
+    const BASE = 1100;
+    const COL_STAGGER = 130;
     const animations = [];
 
     for (let c = 0; c < COLS; c++) {
@@ -557,14 +615,16 @@
 
       const anim = track.animate(
         [
-          { transform: `translateY(${-offset}px)`, filter: "blur(2.5px)", offset: 0,    easing: "cubic-bezier(0.3, 0, 0.7, 0.55)" },
-          { transform: `translateY(-60px)`,         filter: "blur(2px)",   offset: 0.55, easing: "cubic-bezier(0.4, 0, 0.2, 1)" },
-          { transform: `translateY(14px)`,          filter: "blur(0.5px)", offset: 0.82, easing: "cubic-bezier(0.5, 0, 0.5, 1)" },
-          { transform: `translateY(-3px)`,          filter: "blur(0px)",   offset: 0.94, easing: "ease-out" },
-          { transform: `translateY(0px)`,           filter: "blur(0px)",   offset: 1 },
+          { transform: `translateY(${-offset}px)`,         filter: "blur(3px)",   offset: 0,    easing: "linear" },
+          { transform: `translateY(${-offset * 0.45}px)`,  filter: "blur(2.5px)", offset: 0.30, easing: "linear" },
+          { transform: `translateY(-200px)`,               filter: "blur(2px)",   offset: 0.55, easing: "cubic-bezier(0.3, 0, 0.5, 1)" },
+          { transform: `translateY(-50px)`,                filter: "blur(1px)",   offset: 0.78, easing: "cubic-bezier(0.3, 0, 0.4, 1)" },
+          { transform: `translateY(10px)`,                 filter: "blur(0px)",   offset: 0.92, easing: "ease-out" },
+          { transform: `translateY(-2px)`,                 filter: "blur(0px)",   offset: 0.97, easing: "ease-out" },
+          { transform: `translateY(0px)`,                  filter: "blur(0px)",   offset: 1 },
         ],
         {
-          duration: state.fastForward ? Math.max(140, duration * 0.35) : duration,
+          duration: state.fastForward ? Math.max(220, duration * 0.32) : duration,
           fill: "forwards",
         }
       );
@@ -602,21 +662,43 @@
     }
   }
 
-  async function animateMatched(cells, isWild = false) {
-    // Phase 1: highlight cluster cells (lavender bg + crack/shake on symbols).
+  // animateMatched: three-phase cluster-pop choreography.
+  //   Phase 1 (380ms): cells go lavender + symbols crack/shake (build-up).
+  //   Phase 2 (380ms): explode + fly-out animation toward the recent-wins
+  //                    panel; once the fly-out lands, the panel rows update.
+  //   Phase 3:         clear regs from the grid (wilds stay sticky).
+  // `winInfo` is an array of { cells, symIdx, size, payMult, amount } — one
+  // entry per winning cluster from this cascade step.
+  async function animateMatched(cells, winInfo, isWild = false) {
+    // Phase 1: highlight
     for (const [r, c] of cells) {
       cellAt(r, c).classList.add("in-cluster");
     }
     await ffWait(380);
 
-    // Phase 2: explode. Strip in-cluster, add matched, emit particles.
+    // Phase 2: explode + fly-out
     for (const [r, c] of cells) {
       const cell = cellAt(r, c);
       cell.classList.remove("in-cluster");
       cell.classList.add("matched");
       emitSparks(cell, isWild ? 12 : 8);
     }
-    await ffWait(380);
+
+    // Trigger fly-outs (in parallel) for each cluster
+    if (winInfo) {
+      for (const wi of winInfo) {
+        flyWinToPanel(wi.cells, wi.symIdx, wi.amount);
+      }
+      // Add to panel after fly-out has covered most of the arc
+      const updateDelay = state.fastForward ? 200 : 600;
+      setTimeout(() => {
+        for (const wi of winInfo) {
+          addRecentWin(wi.symIdx, wi.size, wi.payMult, wi.amount);
+        }
+      }, updateDelay);
+    }
+
+    await ffWait(420);
 
     // Phase 3: clear regs; wilds stay sticky
     for (const [r, c] of cells) {
@@ -762,14 +844,13 @@
       let stepWin = 0;
       const allCells = [];
       const wildCellsInRound = new Set();
+      const winInfo = [];
 
       for (const cl of clusters) {
-        // Sum multipliers of cells in this cluster
         let multSum = 0;
         for (const [r, c] of cl.cells) {
           if (state.cellMult[r][c] > 0) multSum += state.cellMult[r][c];
         }
-        // Wilds in cluster contribute their own multiplier
         for (const [r, c] of cl.wildCells) {
           const w = state.grid[r][c];
           if (w && w.t === TY.WILD) multSum += w.m;
@@ -780,7 +861,13 @@
         const win = +(base * finalMult).toFixed(2);
         stepWin += win;
         const payMult = +(base * finalMult / effectiveBet).toFixed(2);
-        addRecentWin(cl.symIdx, cl.cells.length, payMult, win);
+        winInfo.push({
+          cells: cl.cells,
+          symIdx: cl.symIdx,
+          size: cl.cells.length,
+          payMult,
+          amount: win,
+        });
         allCells.push(...cl.cells);
       }
       state.totalSpinWin += stepWin;
@@ -804,7 +891,7 @@
         if (w && w.t === TY.WILD) w.m = Math.min(100, w.m + 10);
       }
 
-      await animateMatched(allCells);
+      await animateMatched(allCells, winInfo);
 
       // Dig-up on empty cells
       const empties = [];
@@ -928,6 +1015,7 @@
         if (!clusters.length) break;
         let stepWin = 0;
         const allCells = [];
+        const winInfo = [];
         for (const cl of clusters) {
           let multSum = 0;
           for (const [r, c] of cl.cells) if (state.cellMult[r][c] > 0) multSum += state.cellMult[r][c];
@@ -938,7 +1026,13 @@
           const base = payForCluster(cl.symIdx, cl.cells.length) * state.bet;
           const win = +(base * Math.max(1, multSum)).toFixed(2);
           stepWin += win;
-          addRecentWin(cl.symIdx, cl.cells.length, +(base * Math.max(1, multSum) / state.bet).toFixed(2), win);
+          winInfo.push({
+            cells: cl.cells,
+            symIdx: cl.symIdx,
+            size: cl.cells.length,
+            payMult: +(base * Math.max(1, multSum) / state.bet).toFixed(2),
+            amount: win,
+          });
           allCells.push(...cl.cells);
         }
         state.freeSpinsWin += stepWin;
@@ -947,7 +1041,7 @@
           const cur = state.cellMult[r][c];
           state.cellMult[r][c] = Math.min(10, cur === 0 ? 2 : cur + 2);
         }
-        await animateMatched(allCells);
+        await animateMatched(allCells, winInfo);
         await animateCascade();
         paintAll();
         cs++;
@@ -1064,11 +1158,18 @@
       if (!clusters.length) break;
       let stepWin = 0;
       const allCells = [];
+      const winInfo = [];
       for (const cl of clusters) {
         const base = payForCluster(cl.symIdx, cl.cells.length) * state.bet;
         const win = +base.toFixed(2);
         stepWin += win;
-        addRecentWin(cl.symIdx, cl.cells.length, +(base / state.bet).toFixed(2), win);
+        winInfo.push({
+          cells: cl.cells,
+          symIdx: cl.symIdx,
+          size: cl.cells.length,
+          payMult: +(base / state.bet).toFixed(2),
+          amount: win,
+        });
         allCells.push(...cl.cells);
       }
       state.totalSpinWin += stepWin;
@@ -1078,7 +1179,7 @@
         const cur = state.cellMult[r][c];
         state.cellMult[r][c] = Math.min(10, cur === 0 ? 2 : cur + 2);
       }
-      await animateMatched(allCells);
+      await animateMatched(allCells, winInfo);
       const empties = [];
       for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) if (state.grid[r][c] === null) empties.push([r, c]);
       await applyDigUp(empties);
