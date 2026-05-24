@@ -97,11 +97,34 @@
       </div>
 
       <div class="modal-backdrop" id="buyBonusModal" aria-hidden="true">
-        <div class="modal" role="dialog" aria-label="Buy Bonus">
+        <div class="modal bb-modal" role="dialog" aria-label="Buy Free Spins">
           <button class="modal-close" id="buyBonusClose" type="button" aria-label="Close">×</button>
-          <h2 class="modal-title">BUY BONUS</h2>
-          <p class="modal-subtitle">Buy a Free Spins round</p>
-          <div class="bb-options" id="bbOptions"></div>
+          <h2 class="modal-title bb-title">BUY FREE SPINS</h2>
+          <p class="bb-description">After purchasing 3-6 scatters will drop on reels. These scatters will turn into ×10 cell multiplier or sticky wild during free spins.</p>
+          <div class="bb-options-grid" id="bbOptions"></div>
+          <div class="ws-bet">
+            <button class="ws-bet-btn" id="bbBetDown" type="button" aria-label="Decrease bet">◀</button>
+            <div class="ws-bet-info">
+              <div class="ws-bet-label">Bet</div>
+              <div class="ws-bet-value" id="bbBet">1.00</div>
+              <div class="ws-bet-unit">ETH</div>
+            </div>
+            <button class="ws-bet-btn" id="bbBetUp" type="button" aria-label="Increase bet">▶</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-backdrop" id="bbConfirmModal" aria-hidden="true">
+        <div class="bb-confirm" role="dialog" aria-label="Confirm purchase">
+          <button class="modal-close" id="bbConfirmClose" type="button" aria-label="Close">×</button>
+          <div class="bb-confirm-jar">
+            <div class="bb-confirm-amount" id="bbConfirmAmount">0.00 ETH</div>
+            <p class="bb-confirm-desc">WILL BE SUBTRACTED<br/>FROM YOUR BALANCE</p>
+            <div class="bb-confirm-buttons">
+              <button class="bb-confirm-back" id="bbConfirmBack" type="button">Back</button>
+              <button class="bb-confirm-ok" id="bbConfirmOk" type="button">OK</button>
+            </div>
+          </div>
         </div>
       </div>
 

@@ -79,11 +79,14 @@
     return 0;
   }
 
+  // BGaming Aztec Clusters' Buy Free Spins ratios: regular 100×, +1 wild 200×,
+  // +2 wilds 400×, all wilds 800×. Our minimum 100× matches "REGULAR 150 FUN
+  // at 1.50 bet" in the reference screenshot.
   const BUY_OPTIONS = [
-    { label: "Free Spins",       cost: 80,  wilds: 0 },
-    { label: "FS + 1 Wild",      cost: 110, wilds: 1 },
-    { label: "FS + 2 Wilds",     cost: 150, wilds: 2 },
-    { label: "FS + 3 Wilds",     cost: 200, wilds: 3 },
+    { label: "REGULAR",            sublabel: "",                  cost: 100,  wilds: 0 },
+    { label: "1 WILD",             sublabel: "GUARANTEED",        cost: 200,  wilds: 1 },
+    { label: "2 WILDS",            sublabel: "GUARANTEED",        cost: 400,  wilds: 2 },
+    { label: "ALL SCATTERS",       sublabel: "TURN WILDS",        cost: 800,  wilds: 3, allWilds: true },
   ];
 
   // ---- cell types -----------------------------------------------------------
@@ -151,6 +154,14 @@
   const fsTriggerCount = $("fsTriggerCount");
   const bonusActivePanel = $("bonusActivePanel");
   const baValue = $("baValue");
+  const bbBet = $("bbBet");
+  const bbBetUp = $("bbBetUp");
+  const bbBetDown = $("bbBetDown");
+  const bbConfirmModal = $("bbConfirmModal");
+  const bbConfirmClose = $("bbConfirmClose");
+  const bbConfirmAmount = $("bbConfirmAmount");
+  const bbConfirmBack = $("bbConfirmBack");
+  const bbConfirmOk = $("bbConfirmOk");
 
   // ---- responsive scaling ----------------------------------------------------
   const stage = $("stage");
@@ -472,10 +483,11 @@
     if (state.recentWins.length > 8) state.recentWins.length = 8;
     renderPaytable();
   }
-  function fmtPayMult(m) {
-    if (m >= 10) return `×${Math.round(m)}`;
-    if (m >= 1)  return `×${m.toFixed(1)}`;
-    return `×${m.toFixed(2)}`;
+  // Thousand-separated amount: 3211.20 → "3,211.20"
+  function fmtAmount(v) {
+    const fixed = v.toFixed(2);
+    const [int, dec] = fixed.split(".");
+    return int.replace(/\B(?=(\d{3})+(?!\d))/g, ",") + "." + dec;
   }
   function renderPaytable() {
     if (!state.recentWins.length) {
@@ -489,11 +501,11 @@
       const row = document.createElement("div");
       row.className = "pt-row";
       const icon = `assets/${REG_ASSETS[w.symIdx]}.png`;
+      // Matches Aztec Clusters reference: count icon amount (no ×mult column).
       row.innerHTML =
         `<span class="pt-count">${w.size}</span>` +
         `<div class="pt-icon" style="background-image:url('${icon}')"></div>` +
-        `<span class="pt-mult">${fmtPayMult(w.payMult)}</span>` +
-        `<span class="pt-amount">${fmt(w.amount)}</span>`;
+        `<span class="pt-amount">${fmtAmount(w.amount)}</span>`;
       paytableRows.appendChild(row);
     }
   }
@@ -1022,6 +1034,7 @@
       // Trigger: convert scatters to wilds or ×10 multipliers
       let convertedWilds = 0;
       const wildsToForce = state.pendingBuyTrigger ? state.pendingBuyTrigger.wilds : 0;
+      const allWilds = state.pendingBuyTrigger ? state.pendingBuyTrigger.allWilds : false;
       state.pendingBuyTrigger = null;
 
       const scatterCells = [];
@@ -1035,7 +1048,7 @@
         [scatterCells[i], scatterCells[j]] = [scatterCells[j], scatterCells[i]];
       }
       for (const [r, c] of scatterCells) {
-        if (convertedWilds < wildsToForce || Math.random() < 0.5) {
+        if (allWilds || convertedWilds < wildsToForce || Math.random() < 0.5) {
           state.grid[r][c] = { t: TY.WILD, m: 10 };
           convertedWilds++;
         } else {
@@ -1148,23 +1161,47 @@
   }
 
   // ---- modals ---------------------------------------------------------------
+  function pyramidIconsHTML(count) {
+    let html = "";
+    for (let i = 0; i < count; i++) html += '<div class="bb-pyramid"></div>';
+    return `<div class="bb-pyramids">${html}</div>`;
+  }
   function renderBuyOptions() {
     bbOptions.innerHTML = "";
     for (const opt of BUY_OPTIONS) {
-      const btn = document.createElement("button");
-      btn.className = "bb-btn";
-      btn.type = "button";
-      btn.innerHTML =
-        `<span class="bb-btn-label">${opt.label}</span>` +
-        `<span class="bb-btn-cost">${fmt(opt.cost * state.bet)} ETH</span>`;
-      btn.addEventListener("click", () => buyBonus(opt));
-      bbOptions.appendChild(btn);
+      const card = document.createElement("div");
+      card.className = "bb-option";
+      const cost = opt.cost * state.bet;
+      const affordable = state.balance >= cost;
+      card.innerHTML =
+        pyramidIconsHTML(opt.wilds) +
+        `<div class="bb-label-main">${opt.label}</div>` +
+        (opt.sublabel ? `<div class="bb-label-sub">${opt.sublabel}</div>` : "") +
+        `<div class="bb-cost">${fmtAmount(cost)} ETH</div>` +
+        `<button class="bb-buy" type="button" ${affordable ? "" : "disabled"}>BUY</button>`;
+      const buyBtn = card.querySelector(".bb-buy");
+      buyBtn.addEventListener("click", () => {
+        if (!affordable) return;
+        showBuyConfirm(opt);
+      });
+      if (!affordable) card.classList.add("disabled");
+      bbOptions.appendChild(card);
     }
+    bbBet.textContent = fmt(state.bet);
+  }
+
+  // Confirmation modal between selecting a buy option and actually paying.
+  let pendingBuyOpt = null;
+  function showBuyConfirm(opt) {
+    pendingBuyOpt = opt;
+    bbConfirmAmount.textContent = `${fmtAmount(opt.cost * state.bet)} ETH`;
+    openModal(bbConfirmModal);
   }
   function openModal(el) { el.classList.add("visible"); el.setAttribute("aria-hidden", "false"); }
   function closeModal(el) { el.classList.remove("visible"); el.setAttribute("aria-hidden", "true"); }
 
   async function buyBonus(opt) {
+    closeModal(bbConfirmModal);
     closeModal(buyBonusModal);
     if (state.spinning) return;
     const cost = opt.cost * state.bet;
@@ -1172,7 +1209,7 @@
     state.balance -= cost;
     refreshHUD();
     // Force a free-spin trigger: prime the next spin so that ≥3 scatters land
-    state.pendingBuyTrigger = { wilds: opt.wilds };
+    state.pendingBuyTrigger = { wilds: opt.wilds, allWilds: !!opt.allWilds };
     await triggerBuyBonusSpin(opt);
   }
 
@@ -1273,11 +1310,39 @@
 
   btnBuyBonus.addEventListener("click", () => {
     if (state.spinning || state.inFreeSpins) return;
+    if (state.wildSpinArmed) {
+      // Mutually exclusive with Wild Spin — flash to indicate it's unavailable
+      flashHUD(btnBuyBonus);
+      return;
+    }
     renderBuyOptions();
     openModal(buyBonusModal);
   });
   buyBonusClose.addEventListener("click", () => closeModal(buyBonusModal));
   buyBonusModal.addEventListener("click", (e) => { if (e.target === buyBonusModal) closeModal(buyBonusModal); });
+
+  // Buy Free Spins bet selector (its own arrows in the modal)
+  bbBetUp.addEventListener("click", () => {
+    state.betIdx = Math.min(BET_LEVELS.length - 1, state.betIdx + 1);
+    state.bet = BET_LEVELS[state.betIdx];
+    refreshHUD();
+    renderBuyOptions();
+  });
+  bbBetDown.addEventListener("click", () => {
+    state.betIdx = Math.max(0, state.betIdx - 1);
+    state.bet = BET_LEVELS[state.betIdx];
+    refreshHUD();
+    renderBuyOptions();
+  });
+
+  // Buy Free Spins confirmation modal
+  bbConfirmClose.addEventListener("click", () => closeModal(bbConfirmModal));
+  bbConfirmModal.addEventListener("click", (e) => { if (e.target === bbConfirmModal) closeModal(bbConfirmModal); });
+  bbConfirmBack.addEventListener("click", () => closeModal(bbConfirmModal));
+  bbConfirmOk.addEventListener("click", () => {
+    if (pendingBuyOpt) buyBonus(pendingBuyOpt);
+    pendingBuyOpt = null;
+  });
 
   autoplayClose.addEventListener("click", () => closeModal(autoplayModal));
   autoplayModal.addEventListener("click", (e) => { if (e.target === autoplayModal) closeModal(autoplayModal); });
@@ -1291,15 +1356,24 @@
     });
   }
 
+  function refreshExclusiveButtons() {
+    // Wild Spin and Buy Bonus are mutually exclusive — if one is engaged,
+    // the other is greyed out.
+    if (state.wildSpinArmed) {
+      btnBuyBonus.setAttribute("aria-disabled", "true");
+    } else {
+      btnBuyBonus.removeAttribute("aria-disabled");
+    }
+  }
+
   btnWildSpin.addEventListener("click", () => {
     if (state.spinning || state.inFreeSpins) return;
     if (state.wildSpinArmed) {
-      // Already armed → click deactivates immediately, no modal
       state.wildSpinArmed = false;
       btnWildSpin.setAttribute("aria-pressed", "false");
+      refreshExclusiveButtons();
       return;
     }
-    // Show the activation modal with cost and description
     refreshWildSpinModal();
     openModal(wildSpinModal);
   });
@@ -1315,6 +1389,7 @@
   wsActivate.addEventListener("click", () => {
     state.wildSpinArmed = true;
     btnWildSpin.setAttribute("aria-pressed", "true");
+    refreshExclusiveButtons();
     closeModal(wildSpinModal);
   });
   wsBetUp.addEventListener("click", () => {
