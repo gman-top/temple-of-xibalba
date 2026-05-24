@@ -204,23 +204,37 @@
   }
 
   async function animateSpinIn() {
-    // briefly show "spinning" effect on all cells
-    for (let i = 0; i < reelsEl.children.length; i++) {
-      reelsEl.children[i].classList.add("spinning");
+    // mark all cells spinning and start a per-cell ticker that swaps the
+    // background image to a random symbol every ~60ms — this gives the illusion
+    // of a reel scrolling past, rather than a single symbol bouncing in-cell.
+    for (const cell of reelsEl.children) cell.classList.add("spinning");
+
+    const tickers = [];
+    for (const cell of reelsEl.children) {
+      const sym = cell.querySelector(".symbol");
+      sym.style.opacity = "1";
+      const id = setInterval(() => {
+        const rnd = Math.floor(Math.random() * SYMBOLS.length);
+        sym.style.backgroundImage = `url("assets/${SYMBOLS[rnd]}.png")`;
+      }, 55 + Math.random() * 40);
+      tickers.push(id);
     }
-    await ffWait(450);
-    // generate fresh grid and reveal column-by-column with a tiny stagger
+
+    await ffWait(600);
+
+    // pick the final grid, then stop each column in left-to-right sequence
     state.grid = randomGrid();
     for (let c = 0; c < COLS; c++) {
       for (let r = 0; r < ROWS; r++) {
-        const cell = cellAt(r, c);
+        const idx = r * COLS + c;
+        clearInterval(tickers[idx]);
+        const cell = reelsEl.children[idx];
         cell.classList.remove("spinning");
         cell.classList.add("dropping");
         const sym = cell.querySelector(".symbol");
         sym.style.backgroundImage = `url("assets/${SYMBOLS[state.grid[r][c]]}.png")`;
-        sym.style.opacity = "1";
       }
-      await ffWait(80);
+      await ffWait(90);
     }
     await ffWait(180);
     for (const cell of reelsEl.children) cell.classList.remove("dropping");

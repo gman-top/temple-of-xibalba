@@ -70,6 +70,12 @@ html, body {
   width: 456px;
   height: 610px;
   z-index: 3;
+  animation: floatChar 4.5s ease-in-out infinite alternate;
+  transform-origin: center bottom;
+}
+@keyframes floatChar {
+  0%   { transform: translateY(0) rotate(-0.5deg); }
+  100% { transform: translateY(-14px) rotate(0.5deg); }
 }
 
 .slot-frame {
@@ -115,13 +121,17 @@ html, body {
   filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
 }
 
+/* Spin: per-cell symbol is swapped rapidly from JS; CSS just adds a motion blur
+   so the swaps read as a moving reel rather than a flickering image. */
 .cell.spinning .symbol {
-  animation: reelSpin 0.08s linear infinite;
+  filter: blur(0.5px) drop-shadow(0 4px 6px rgba(0,0,0,0.5));
+  animation: reelBlur 0.18s linear infinite;
 }
 
-@keyframes reelSpin {
-  0%   { transform: translateY(-100%); opacity: 0.85; }
-  100% { transform: translateY(100%); opacity: 0.85; }
+@keyframes reelBlur {
+  0%   { transform: translateY(-12%); }
+  50%  { transform: translateY(0); }
+  100% { transform: translateY(12%); }
 }
 
 .cell.matched .symbol {
