@@ -794,9 +794,9 @@ button:active img {
 .paytable {
   position: absolute;
   left: 75px;
-  top: 740px;
+  top: 855px;
   width: 280px;
-  height: 340px;
+  height: 130px;
   z-index: 8;
   background: transparent;
   border: 0;
@@ -804,6 +804,7 @@ button:active img {
   padding: 0 8px;
   display: flex;
   flex-direction: column;
+  justify-content: center;
 }
 .paytable-header { display: none; }
 .paytable-rows {
@@ -816,10 +817,10 @@ button:active img {
 .paytable-empty { display: none; }
 .pt-row {
   display: grid;
-  grid-template-columns: 42px 44px 1fr;
+  grid-template-columns: 40px 38px 1fr;
   align-items: center;
-  gap: 12px;
-  padding: 4px 6px;
+  gap: 10px;
+  padding: 2px 6px;
   background: transparent;
   border: 0;
   animation: ptRowIn 0.4s cubic-bezier(.3,1.4,.4,1);
@@ -829,7 +830,7 @@ button:active img {
   to   { transform: translateX(0); opacity: 1; }
 }
 .pt-count {
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 900;
   color: #ffffff;
   text-align: center;
@@ -838,8 +839,8 @@ button:active img {
   letter-spacing: -0.03em;
 }
 .pt-icon {
-  width: 42px;
-  height: 42px;
+  width: 36px;
+  height: 36px;
   background-size: contain;
   background-position: center;
   background-repeat: no-repeat;
