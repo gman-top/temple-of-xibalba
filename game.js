@@ -140,6 +140,17 @@
   const autoplayClose = $("autoplayClose");
   const autoStopOnFsEl = $("autoStopOnFs");
   const paytableRows = $("paytableRows");
+  const wildSpinModal = $("wildSpinModal");
+  const wildSpinClose = $("wildSpinClose");
+  const wsCost = $("wsCost");
+  const wsBet = $("wsBet");
+  const wsActivate = $("wsActivate");
+  const wsBetUp = $("wsBetUp");
+  const wsBetDown = $("wsBetDown");
+  const fsTriggerModal = $("fsTriggerModal");
+  const fsTriggerCount = $("fsTriggerCount");
+  const bonusActivePanel = $("bonusActivePanel");
+  const baValue = $("baValue");
 
   // ---- responsive scaling ----------------------------------------------------
   const stage = $("stage");
@@ -417,6 +428,44 @@
     } else {
       fsBanner.classList.remove("visible");
     }
+  }
+
+  function refreshBonusActive() {
+    if (state.inFreeSpins) {
+      bonusActivePanel.classList.add("visible");
+      baValue.textContent = `${fmt(state.freeSpinsWin)} ETH`;
+    } else {
+      bonusActivePanel.classList.remove("visible");
+    }
+  }
+
+  // FS trigger announcement modal — pauses on CLICK TO CONTINUE so the
+  // trigger gets the weight it deserves.
+  function showFsTriggerModal(count) {
+    return new Promise((resolve) => {
+      fsTriggerCount.textContent = count;
+      fsTriggerModal.classList.add("visible");
+      fsTriggerModal.setAttribute("aria-hidden", "false");
+      const advance = () => {
+        fsTriggerModal.classList.remove("visible");
+        fsTriggerModal.setAttribute("aria-hidden", "true");
+        fsTriggerModal.removeEventListener("click", advance);
+        document.removeEventListener("keydown", onKey);
+        resolve();
+      };
+      const onKey = (e) => {
+        if (e.code === "Space" || e.code === "Enter" || e.code === "Escape") {
+          e.preventDefault();
+          advance();
+        }
+      };
+      fsTriggerModal.addEventListener("click", advance);
+      document.addEventListener("keydown", onKey);
+      // Auto-advance after ~6s in case user doesn't click (esp. autoplay)
+      setTimeout(() => {
+        if (fsTriggerModal.classList.contains("visible")) advance();
+      }, state.fastForward ? 1200 : 6000);
+    });
   }
   function addRecentWin(symIdx, size, payMult, amount) {
     state.recentWins.unshift({ symIdx, size, payMult, amount });
@@ -922,7 +971,7 @@
       state.balance += state.totalSpinWin;
     } else {
       state.freeSpinsWin += state.totalSpinWin;
-      refreshFSBanner();
+      refreshFSBanner(); refreshBonusActive();
     }
     refreshHUD();
 
@@ -946,7 +995,7 @@
     } else if (state.inFreeSpins) {
       // Continue FS round
       state.freeSpinsLeft--;
-      refreshFSBanner();
+      refreshFSBanner(); refreshBonusActive();
       if (state.freeSpinsLeft > 0) {
         await ffWait(500);
         spin({ skipBet: true });
@@ -1001,12 +1050,11 @@
       state.freeSpinsTotal = award;
       state.freeSpinsLeft = award;
       state.freeSpinsWin = 0;
-      refreshFSBanner();
+      refreshFSBanner(); refreshBonusActive();
 
-      winBannerText.textContent = `${award} FREE SPINS`;
-      winBanner.classList.add("visible");
-      await ffWait(1800);
-      winBanner.classList.remove("visible");
+      // Announcement modal: shows the count (with the +5/+3/+2 retrigger info),
+      // pauses on "CLICK TO CONTINUE" to give the trigger weight.
+      await showFsTriggerModal(award);
 
       // Cascade once more (wilds may form clusters now)
       let cs = 0;
@@ -1036,7 +1084,7 @@
           allCells.push(...cl.cells);
         }
         state.freeSpinsWin += stepWin;
-        refreshFSBanner();
+        refreshFSBanner(); refreshBonusActive();
         for (const [r, c] of allCells) {
           const cur = state.cellMult[r][c];
           state.cellMult[r][c] = Math.min(10, cur === 0 ? 2 : cur + 2);
@@ -1055,7 +1103,7 @@
       // Retrigger: add spins
       state.freeSpinsLeft += award;
       state.freeSpinsTotal += award;
-      refreshFSBanner();
+      refreshFSBanner(); refreshBonusActive();
       winBannerText.textContent = `+${award} FREE SPINS`;
       winBanner.classList.add("visible");
       await ffWait(1400);
@@ -1082,7 +1130,7 @@
     state.freeSpinsLeft = 0;
     state.freeSpinsTotal = 0;
     state.freeSpinsWin = 0;
-    refreshFSBanner();
+    refreshFSBanner(); refreshBonusActive();
     // Clear multipliers between rounds
     state.cellMult = makeEmptyGrid(false);
     paintAll();
@@ -1244,9 +1292,42 @@
   }
 
   btnWildSpin.addEventListener("click", () => {
-    if (state.spinning) return;
-    state.wildSpinArmed = !state.wildSpinArmed;
-    btnWildSpin.setAttribute("aria-pressed", String(state.wildSpinArmed));
+    if (state.spinning || state.inFreeSpins) return;
+    if (state.wildSpinArmed) {
+      // Already armed → click deactivates immediately, no modal
+      state.wildSpinArmed = false;
+      btnWildSpin.setAttribute("aria-pressed", "false");
+      return;
+    }
+    // Show the activation modal with cost and description
+    refreshWildSpinModal();
+    openModal(wildSpinModal);
+  });
+
+  function refreshWildSpinModal() {
+    // Wild Spin doubles the bet for the upcoming spin → cost = 2 × bet shown
+    // here for clarity. The actual deduction happens in spin().
+    wsCost.textContent = fmt(state.bet * 2);
+    wsBet.textContent = fmt(state.bet);
+  }
+  wildSpinClose.addEventListener("click", () => closeModal(wildSpinModal));
+  wildSpinModal.addEventListener("click", (e) => { if (e.target === wildSpinModal) closeModal(wildSpinModal); });
+  wsActivate.addEventListener("click", () => {
+    state.wildSpinArmed = true;
+    btnWildSpin.setAttribute("aria-pressed", "true");
+    closeModal(wildSpinModal);
+  });
+  wsBetUp.addEventListener("click", () => {
+    state.betIdx = Math.min(BET_LEVELS.length - 1, state.betIdx + 1);
+    state.bet = BET_LEVELS[state.betIdx];
+    refreshHUD();
+    refreshWildSpinModal();
+  });
+  wsBetDown.addEventListener("click", () => {
+    state.betIdx = Math.max(0, state.betIdx - 1);
+    state.bet = BET_LEVELS[state.betIdx];
+    refreshHUD();
+    refreshWildSpinModal();
   });
 
   betUp.addEventListener("click", () => {
@@ -1276,6 +1357,6 @@
   state.grid = randomGrid();
   paintAll();
   refreshHUD();
-  refreshFSBanner();
+  refreshFSBanner(); refreshBonusActive();
   renderPaytable();
 })();
