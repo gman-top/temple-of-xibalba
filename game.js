@@ -36,19 +36,20 @@
   const REG_ASSETS = ["symbol02","symbol03","symbol04","symbol05","symbol06","symbol07","symbol08","symbol09"];
   const SCATTER_ASSET = "symbol01";
 
-  // weights for random regular symbol pick (lower idx = rarer)
-  const REG_WEIGHTS = [3, 5, 7, 9, 11, 13, 15, 17];
+  // Weights skewed toward common low-tier symbols so clusters form often,
+  // but not so extreme that cascades chain forever.
+  const REG_WEIGHTS = [2, 3, 4, 6, 9, 13, 17, 22];
 
   // base payouts: PAY_TABLE[symIdx][clusterSize - 5], clamped at len-1
   const PAY_TABLE = [
-    [10, 15, 25, 40, 80, 150, 300, 500],   // idx 0 (highest)
-    [ 5,  8, 12, 20, 40,  80, 150, 250],
-    [ 3,  5,  8, 12, 20,  40,  80, 120],
-    [ 2,  3,  5,  8, 12,  20,  40,  60],
-    [1.2, 2,  3,  5,  8,  12,  20,  30],
-    [0.8, 1.2, 2, 3,  5,   8,  12,  18],
-    [0.5, 0.8, 1.2, 2, 3,  5,   8,  12],
-    [0.3, 0.5, 0.8, 1.2, 2, 3,  5,   8],   // idx 7 (lowest)
+    [25, 40, 70, 120, 200, 400, 700, 1200],   // idx 0 (highest)
+    [12, 20, 35,  60, 100, 200, 350,  600],
+    [ 6, 10, 18,  30,  50, 100, 180,  300],
+    [ 3,  5,  9,  15,  25,  50,  90,  150],
+    [ 2,  3,  5,   8,  14,  25,  45,   80],
+    [ 1, 1.5,2.5,  4,   7,  12,  22,   40],
+    [0.6, 1, 1.6,  3,   5,   9,  16,   28],
+    [0.4, 0.6,1.0, 2,   3,   6,  10,   18],  // idx 7 (lowest, most common)
   ];
 
   function payForCluster(symIdx, size) {
@@ -507,74 +508,115 @@
     return cell;
   }
 
-  // Smooth column-wise reel spin: for each column, append N preroll cells
-  // BELOW the 7 real cells, set translateY to -(N * cellH) so the prerolls
-  // are initially visible in the viewport, then ease the track down to 0
-  // so the real cells settle in. Columns decelerate left-to-right.
+  // Smooth column-wise reel spin using the Web Animations API.
+  // Each column animates through 4 keyframes:
+  //   1. Off-screen (prerolls at top of viewport, real cells above)
+  //   2. ~70% of the way (high-velocity scroll past prerolls, motion blur)
+  //   3. Overshoot ~12px past the target (so it "snaps" back)
+  //   4. Final rest position with cells settled in place
+  // Each cell gets a small landing pop at the end of its column's animation.
   async function animateSpinIn(initialGrid) {
     state.grid = initialGrid;
 
-    const PREROLL = 16;
+    const PREROLL = 14;
     const cellH = cellHeightPx() || (681 / ROWS);
     const offset = PREROLL * cellH;
 
-    // 1. Paint the final symbols into the existing 7 cells (they're invisible
-    //    while translated above the viewport)
+    // Paint the final symbols into the existing 7 cells (currently above viewport)
     for (let c = 0; c < COLS; c++) {
       for (let r = 0; r < ROWS; r++) paintCell(r, c);
     }
 
-    // 2. Append preroll cells below the real cells in each column
+    // Append preroll cells below the real cells in each column
     for (let c = 0; c < COLS; c++) {
       const track = colTrack(c);
       for (let i = 0; i < PREROLL; i++) {
         track.appendChild(makePrerollCell());
       }
-      // Position track so prerolls are visible (real cells above viewport)
       track.style.transition = "none";
       track.style.transform = `translateY(${-offset}px)`;
-      void track.offsetHeight;   // force reflow
-      track.classList.add("spinning");
+      track.style.filter = "blur(0px)";
+      void track.offsetHeight;
     }
 
-    // 3. Animate each column down to translateY(0) with staggered duration
-    const baseDuration = 700;
-    const colDelay = 110;
+    // Total spin duration: fast & snappy
+    const BASE = 480;
+    const COL_STAGGER = 60;
+    const animations = [];
+
     for (let c = 0; c < COLS; c++) {
       const track = colTrack(c);
-      const duration = baseDuration + c * colDelay;
-      track.style.transition = `transform ${duration}ms cubic-bezier(0.22, 0.62, 0.18, 1)`;
-      track.style.transform = "translateY(0)";
+      const duration = BASE + c * COL_STAGGER;
+
+      const anim = track.animate(
+        [
+          { transform: `translateY(${-offset}px)`, filter: "blur(2.5px)", offset: 0,    easing: "cubic-bezier(0.3, 0, 0.7, 0.55)" },
+          { transform: `translateY(-60px)`,         filter: "blur(2px)",   offset: 0.55, easing: "cubic-bezier(0.4, 0, 0.2, 1)" },
+          { transform: `translateY(14px)`,          filter: "blur(0.5px)", offset: 0.82, easing: "cubic-bezier(0.5, 0, 0.5, 1)" },
+          { transform: `translateY(-3px)`,          filter: "blur(0px)",   offset: 0.94, easing: "ease-out" },
+          { transform: `translateY(0px)`,           filter: "blur(0px)",   offset: 1 },
+        ],
+        {
+          duration: state.fastForward ? Math.max(140, duration * 0.35) : duration,
+          fill: "forwards",
+        }
+      );
+      animations.push(anim);
     }
 
-    const totalDuration = baseDuration + (COLS - 1) * colDelay + 80;
-    await ffWait(totalDuration);
+    // Wait for the last column to finish
+    await animations[animations.length - 1].finished;
 
-    // 4. Cleanup: remove preroll cells, clear transforms
+    // Cleanup: remove preroll cells, commit final transform, give each cell a
+    // small landing pop
     for (let c = 0; c < COLS; c++) {
       const track = colTrack(c);
-      track.classList.remove("spinning");
-      const prerolls = Array.from(track.querySelectorAll(".cell.preroll"));
-      for (const p of prerolls) p.remove();
+      // Web Animations leaves the computed style on the element; reset inline
+      // so subsequent paints/cascades don't pick up the animated state
+      try { animations[c].cancel(); } catch (e) {}
       track.style.transition = "";
       track.style.transform = "";
+      track.style.filter = "";
+      const prerolls = Array.from(track.querySelectorAll(".cell.preroll"));
+      for (const p of prerolls) p.remove();
+
+      // Per-cell landing pop
+      for (let r = 0; r < ROWS; r++) {
+        const sym = cellAt(r, c).querySelector(".symbol");
+        sym.animate(
+          [
+            { transform: "translateY(-6px) scale(1.06)", offset: 0 },
+            { transform: "translateY(2px) scale(0.97)", offset: 0.5 },
+            { transform: "translateY(0) scale(1)",      offset: 1 },
+          ],
+          { duration: state.fastForward ? 90 : 220, easing: "ease-out" }
+        );
+      }
     }
   }
 
   async function animateMatched(cells, isWild = false) {
+    // Phase 1: highlight cluster cells (lavender bg + crack/shake on symbols).
+    for (const [r, c] of cells) {
+      cellAt(r, c).classList.add("in-cluster");
+    }
+    await ffWait(380);
+
+    // Phase 2: explode. Strip in-cluster, add matched, emit particles.
     for (const [r, c] of cells) {
       const cell = cellAt(r, c);
+      cell.classList.remove("in-cluster");
       cell.classList.add("matched");
-      emitSparks(cell, isWild ? 10 : 6);
+      emitSparks(cell, isWild ? 12 : 8);
     }
-    await ffWait(520);
-    // Don't clear wild/scatter from grid; only clear regs (wilds stay sticky)
+    await ffWait(380);
+
+    // Phase 3: clear regs; wilds stay sticky
     for (const [r, c] of cells) {
       const cell = cellAt(r, c);
       cell.classList.remove("matched");
       const v = state.grid[r][c];
       if (v && v.t === TY.WILD) {
-        // wild stays; bump its multiplier later
         const sym = cell.querySelector(".symbol");
         sym.style.opacity = "0";
         cell.classList.add("wild");
@@ -769,7 +811,7 @@
       paintAll();
 
       cascades++;
-      if (cascades > 30) break;
+      if (cascades > 15) break;
     }
 
     // After cascades: count scatters → maybe trigger FS
