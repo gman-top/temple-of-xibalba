@@ -17,10 +17,12 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  /* Slot scene shows clearly behind a vignette + dim layer — vignette
+     darkens edges to focus the eye on the logo/bar, but the temple is
+     plainly visible so the brand moment SITS on the actual game world. */
   background:
-    radial-gradient(ellipse at center, #1a0d20 0%, #050208 70%, #000 100%),
+    radial-gradient(ellipse at center, rgba(20,10,30,0.35) 0%, rgba(5,2,8,0.85) 75%, rgba(0,0,0,0.95) 100%),
     url("assets/bg.png") center/cover no-repeat;
-  background-blend-mode: multiply;
   gap: 26px;
   transition: opacity 0.6s ease, visibility 0.6s ease;
 }
@@ -407,23 +409,31 @@ button:active img {
   text-shadow: 0 2px 4px rgba(0,0,0,0.7);
 }
 
-.fire-left {
-  position: absolute;
-  left: 692px;
-  top: 902px;
-  width: 125px;
-  height: 312px;
-  z-index: 10;
-  animation: flicker 1.4s ease-in-out infinite alternate;
-}
+/* Fire braziers — relocated from the bottom of the slot frame (where they
+   competed with the spin button) to flank the BONUS ACTIVE panel under
+   the right character. Hidden by default; only visible during free spins
+   so the temple "lights up" when the bonus round is running. */
+.fire-left,
 .fire-right {
   position: absolute;
-  left: 1226px;
-  top: 890px;
-  width: 125px;
-  height: 312px;
-  z-index: 10;
-  animation: flicker 1.3s ease-in-out infinite alternate-reverse;
+  top: 380px;
+  width: 70px;
+  height: 175px;
+  z-index: 8;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.5s ease, visibility 0.5s ease;
+  pointer-events: none;
+}
+.fire-left  { left: 1525px; animation: flicker 1.4s ease-in-out infinite alternate;         }
+.fire-right { left: 1840px; animation: flicker 1.3s ease-in-out infinite alternate-reverse; }
+/* Toggle on whenever the bonus-active panel is visible (i.e. in FS). The
+   CSS sibling selector requires both to share a common parent — which they
+   do (#stage). */
+#stage:has(.bonus-active-panel.visible) .fire-left,
+#stage:has(.bonus-active-panel.visible) .fire-right {
+  opacity: 1;
+  visibility: visible;
 }
 @keyframes flicker {
   0%   { filter: brightness(1) drop-shadow(0 0 18px rgba(255,140,40,0.6)); transform: translateY(0) scaleY(1); }
@@ -1457,40 +1467,49 @@ button:active img {
 .fs-trigger {
   position: relative;
   width: 900px;
-  height: 600px;
-  background: url("assets/fs-banner-bg-new.png") center/contain no-repeat;
+  /* Extra room BELOW the asset for the overlay text (count + hint).
+     The asset itself fills the top portion; text sits in the gap. */
+  padding-bottom: 120px;
   text-align: center;
   animation: modalIn 0.5s cubic-bezier(.3,1.4,.4,1);
   cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.fs-trigger::before {
+  /* Render the banner artwork as its own block so the dynamic count
+     can sit OUTSIDE the image, not on top of the baked-in text. */
+  content: "";
+  display: block;
+  width: 900px;
+  height: 600px;
+  background: url("assets/fs-banner-bg-new.png") center/contain no-repeat;
   filter: drop-shadow(0 10px 40px rgba(0,0,0,0.7));
 }
 .fs-trigger-count {
-  position: absolute;
-  /* Positioned over the empty space below the CONTINUE button in the asset */
-  top: 76%;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 28px;
+  /* Sits BELOW the banner artwork, on the dark backdrop — no overlap
+     with the artwork's baked-in "YOU HAVE TRIGGERED FREE SPINS" /
+     CONTINUE text. */
+  margin-top: 16px;
+  font-size: 36px;
   font-weight: 900;
   color: #ffe066;
   line-height: 1;
-  text-shadow: 0 2px 6px rgba(0,0,0,0.9), 0 0 12px rgba(255,200,80,0.6);
-  letter-spacing: 0.1em;
+  text-shadow: 0 2px 6px rgba(0,0,0,0.95), 0 0 16px rgba(255,200,80,0.7);
+  letter-spacing: 0.08em;
 }
 .fs-trigger-count::after {
   content: " SPINS";
-  font-size: 18px;
-  letter-spacing: 0.2em;
+  font-size: 22px;
+  letter-spacing: 0.22em;
   color: #c9b88a;
+  margin-left: 6px;
 }
 .fs-trigger-cta-hint {
-  position: absolute;
-  bottom: 30px;
-  left: 50%;
-  transform: translateX(-50%);
-  margin: 0;
+  margin: 14px 0 0;
   font-size: 13px;
-  letter-spacing: 0.3em;
+  letter-spacing: 0.32em;
   color: #c9b88a;
   text-transform: uppercase;
   opacity: 0.85;
