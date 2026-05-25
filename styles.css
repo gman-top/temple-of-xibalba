@@ -374,18 +374,32 @@ button:active img {
   inset: 0;
 }
 
+/* Same structure as .buy-bonus-amount above (small uppercase label + bold
+   value) so the totem reads as a consistent stack. */
 .wildspin-amount {
   position: absolute;
-  left: 110px;
-  top: 720px;
-  width: 220px;
-  text-align: center;
-  font-size: 14px;
-  letter-spacing: 0.08em;
-  color: #d6b66c;
-  text-shadow: 0 2px 4px rgba(0,0,0,0.7);
+  left: 159px;
+  top: 705px;
+  width: 128px;
+  height: 37px;
   z-index: 9;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
   pointer-events: none;
+}
+.wildspin-amount .label {
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  color: #c79a3c;
+  text-transform: uppercase;
+}
+.wildspin-amount .value {
+  font-size: 19px;
+  font-weight: 700;
+  color: #ffe8a1;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.7);
 }
 
 .fire-left {
