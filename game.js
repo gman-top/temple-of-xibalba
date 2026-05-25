@@ -1722,25 +1722,33 @@
     const fill = document.getElementById("loadingBarFill");
     const pct  = document.getElementById("loadingPct");
 
+    // Per user request: preload EVERYTHING before the PLAY screen unlocks,
+    // not just the first-paint assets. The user reported that lazy-loaded
+    // modal/FS art felt slow when they opened them mid-game. Trading a
+    // longer initial load (and a fuller progress bar) for snappier
+    // gameplay once the slot is up.
     const CRITICAL = [
+      // Scene / chrome
       "bg.png", "logo.png", "left-asset.png", "bottom.png", "slot-frame.png",
+      "slot-frame-special-round-fixed.png",
       "fire-left.png", "fire-right.png",
-      "buy-bonus-button.png", "wildspin-button-off.png", "wildspin-button-on.png",
-      "spin-button.png", "button-autoplay.png", "button-fastfwd.png", "button-play.png",
-      "plus.png", "minus.png",
-      "symbol-jaguar.png", "symbol-feather.png", "symbol-mask-red.png",
-      "symbol04.png", "symbol05.png",
-      "symbol06.png", "symbol07.png", "symbol08.png", "symbol09.png",
+      // Splash brand
       "aigo-star.png", "aigo-logo.svg",
-    ];
-
-    // Loaded in the background AFTER the intro hides — modal art, special
-    // tier symbols, FS scene, etc. Not blocking the user's first paint.
-    const DEFERRED = [
+      // HUD buttons
+      "buy-bonus-button.png", "wildspin-button-off.png", "wildspin-button-on.png",
+      "spin-button.png", "button-autoplay.png", "button-fastfwd.png",
+      "button-play.png", "plus.png", "minus.png",
+      "menu.png", "sound-on.png", "sound-off.png",
+      // Paying symbols
+      "symbol-jaguar.png", "symbol-feather.png", "symbol-mask-red.png",
+      "symbol04.png", "symbol05.png", "symbol06.png",
+      "symbol07.png", "symbol08.png", "symbol09.png",
+      // Special grid symbols
       "symbol01.png", "symbol02.png",
       "scatter-medallion.png", "wild-pyramid.png",
       "mult-pyramid-low.png", "mult-pyramid-mid.png", "mult-pyramid-high.png",
       "booster-symbol.png", "destroyer-symbol.png",
+      // Modal frames + titles + buttons
       "modal-panel-bg.png", "card-buy-option-bg.png", "confirm-jar.png",
       "title-wild-spin.png", "title-buy-free-spins.png",
       "title-free-spins.png", "title-bonus-game.png",
@@ -1748,7 +1756,8 @@
       "btn-ok.png", "btn-back.png", "btn-close-x.png",
       "arrow-left.png", "arrow-right.png",
       "pyramid-stack.png",
-      "fs-banner-bg-new.png", "fs-portal-bg.png", "slot-frame-special-round.png",
+      // FS scene + banner panels
+      "fs-banner-bg-new.png", "fs-portal-bg.png",
       "special-asset1.png", "right-special-asset-2.png",
     ];
 
@@ -1783,12 +1792,10 @@
       const elapsed = performance.now() - startedAt;
       const wait = Math.max(0, MIN_MS - elapsed);
       setTimeout(() => {
-        // Step 1 done: hide the aigo splash; step 2: reveal the PLAY
-        // screen (video bg) with the PLAY button visible immediately.
+        // All assets loaded. Hide aigo splash → reveal PLAY screen.
         const splash = document.getElementById("aigoSplash");
         if (splash) splash.classList.add("hidden");
         overlay.classList.add("ready");
-        DEFERRED.forEach(loadOne);
       }, wait);
     });
 
