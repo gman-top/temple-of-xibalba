@@ -74,17 +74,33 @@
     fsTrigger:  [280, 560],
     fsEnd:      [240],
   };
+  // Pool of pre-loaded clones per SFX so rapid triggers (cascade chains)
+  // overlap without each one having to decode-from-scratch on cloneNode.
+  // The original SFX[key] stays as the canonical preload; clones are
+  // built UPFRONT inside prewarm() so first play is instant.
+  const SFX_POOL = {};
+  const POOL_SIZE = 4;
+  let poolIdx = {};
   function playSfx(key) {
     if (audioMuted) return;
-    const s = SFX[key];
-    if (!s) return;
-    // Clone the node so rapid-fire triggers overlap instead of cutting
-    // each other off.
+    const pool = SFX_POOL[key];
+    const tpl  = SFX[key];
+    if (!tpl) return;
     const play = (volMul, delay) => {
-      const c = s.cloneNode(true);
-      c.volume = s.volume * volMul;
-      if (delay > 0) setTimeout(() => c.play().catch(() => {}), delay);
-      else c.play().catch(() => {});
+      // Round-robin through the pool so back-to-back triggers don't cut
+      // each other off and we don't pay for cloneNode on every call.
+      let node;
+      if (pool) {
+        poolIdx[key] = ((poolIdx[key] || 0) + 1) % pool.length;
+        node = pool[poolIdx[key]];
+        try { node.currentTime = 0; } catch (e) {}
+      } else {
+        node = tpl.cloneNode(true);
+      }
+      node.volume = tpl.volume * volMul;
+      const start = () => { try { node.play().catch(() => {}); } catch (e) {} };
+      if (delay > 0) setTimeout(start, delay);
+      else start();
     };
     play(1.0, 0);
     const echoes = ECHO_DELAYS[key];
@@ -106,6 +122,21 @@
   function prewarm() {
     for (const k in SFX) {
       const s = SFX[k];
+      // Build a small pool of cloned nodes for round-robin overlap
+      // playback. Done HERE (inside the user-gesture context) so every
+      // clone has its decode pipeline kicked off — first real playSfx is
+      // guaranteed audible.
+      const pool = [];
+      for (let i = 0; i < POOL_SIZE; i++) {
+        const c = s.cloneNode(true);
+        c.preload = "auto";
+        c.volume = s.volume;
+        try { c.load(); } catch (e) {}
+        pool.push(c);
+      }
+      SFX_POOL[k] = pool;
+      // Touch each node with a muted play→pause to force the codec to
+      // decode now rather than on first real playback.
       try {
         s.muted = true;
         const p = s.play();
@@ -1610,6 +1641,10 @@
   });
 
   document.addEventListener("keydown", (e) => {
+    // Don't hijack keys while the loading intro is still up — Space there
+    // should enter the game, not also-spin the reels behind it.
+    const intro = document.getElementById("loadingIntro");
+    if (intro && !intro.classList.contains("hidden")) return;
     if (e.code === "Space") { e.preventDefault(); btnSpin.click(); }
     if (e.code === "KeyA") btnAutoplay.click();
     if (e.code === "KeyF") btnFastFwd.click();
