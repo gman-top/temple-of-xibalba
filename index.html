@@ -7,8 +7,23 @@
 <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <!-- Loading intro overlay (BGaming-style: logo + animated progress bar).
-       Auto-fades out after the LOADING_DURATION elapses. -->
+  <!-- Aigo brand splash (1st screen, ~1.8s): split-screen with the aigo star
+       + wordmark on the left and the Temple of Xibalba logo on the right.
+       Fades out automatically into the asset-loading screen. -->
+  <div id="aigoSplash" class="aigo-splash">
+    <div class="aigo-half aigo-half-left">
+      <img class="aigo-star" src="assets/aigo-star.png" alt="" />
+      <img class="aigo-wordmark" src="assets/aigo-logo.svg" alt="aigo" />
+    </div>
+    <div class="aigo-divider"></div>
+    <div class="aigo-half aigo-half-right">
+      <img class="aigo-game-logo" src="assets/logo.png" alt="Temple of Xibalba" />
+    </div>
+    <div class="aigo-presents">PRESENTS</div>
+  </div>
+
+  <!-- Asset loading overlay (2nd screen). Bar fills as PNGs preload; when
+       done, the PLAY button appears (no auto-hide) so the user opts in. -->
   <div id="loadingIntro" class="loading-intro">
     <img class="loading-logo" src="assets/logo.png" alt="Temple of Xibalba" />
     <div class="loading-bar">
@@ -16,6 +31,9 @@
     </div>
     <div class="loading-text">LOADING<span class="loading-dots"></span></div>
     <div class="loading-pct" id="loadingPct">0%</div>
+    <button class="loading-play" id="loadingPlay" type="button" aria-label="Play">
+      <span>PLAY</span>
+    </button>
     <div class="loading-brand">aigo.bet</div>
   </div>
 

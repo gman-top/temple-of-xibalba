@@ -5,9 +5,97 @@
 * { box-sizing: border-box; }
 
 /* ============================================================
-   Loading intro screen — shown on first load, fades out after
-   the progress bar fills (~2.4s). BGaming/aigo-style: dark Aztec
-   backdrop, big centered logo, animated gold progress bar.
+   Aigo brand splash — 1st screen, ~1.8s, split-screen presentation:
+   aigo star + wordmark on the left, game logo on the right, "PRESENTS"
+   ribbon between. Fades out into the asset-loading screen.
+   ============================================================ */
+.aigo-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(ellipse at center, #1a0d20 0%, #04031a 70%, #000 100%);
+  overflow: hidden;
+  transition: opacity 0.55s ease, visibility 0.55s ease;
+}
+.aigo-splash.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+.aigo-half {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  animation: aigoSlideIn 0.7s cubic-bezier(.3,1.4,.4,1) both;
+}
+.aigo-half-left  { animation-name: aigoSlideLeft;  }
+.aigo-half-right { animation-name: aigoSlideRight; }
+@keyframes aigoSlideLeft {
+  from { transform: translateX(-60px); opacity: 0; }
+  to   { transform: translateX(0);     opacity: 1; }
+}
+@keyframes aigoSlideRight {
+  from { transform: translateX(60px);  opacity: 0; }
+  to   { transform: translateX(0);     opacity: 1; }
+}
+.aigo-star {
+  width: 180px;
+  height: 180px;
+  animation: aigoStarSpin 4s linear infinite;
+  filter: drop-shadow(0 0 30px rgba(255,90,30,0.7));
+}
+@keyframes aigoStarSpin {
+  from { transform: rotate(0deg);   }
+  to   { transform: rotate(360deg); }
+}
+.aigo-wordmark {
+  width: 220px;
+  height: auto;
+  filter: drop-shadow(0 4px 14px rgba(0,0,0,0.6));
+}
+.aigo-game-logo {
+  width: 340px;
+  height: auto;
+  filter: drop-shadow(0 8px 30px rgba(255,180,60,0.45));
+}
+.aigo-divider {
+  width: 2px;
+  height: 60%;
+  background: linear-gradient(180deg, transparent 0%, rgba(255,140,40,0.5) 30%, rgba(255,200,80,0.7) 50%, rgba(255,140,40,0.5) 70%, transparent 100%);
+  box-shadow: 0 0 18px rgba(255,150,60,0.5);
+  animation: aigoSlideIn 0.7s cubic-bezier(.3,1.4,.4,1) 0.1s both;
+}
+@keyframes aigoSlideIn {
+  from { transform: scaleY(0); opacity: 0; }
+  to   { transform: scaleY(1); opacity: 1; }
+}
+.aigo-presents {
+  position: absolute;
+  left: 50%;
+  bottom: 12%;
+  transform: translateX(-50%);
+  font-family: inherit;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.6em;
+  color: rgba(255,180,60,0.7);
+  text-transform: uppercase;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+  animation: aigoPresentsFade 1.5s ease-in-out infinite alternate;
+}
+@keyframes aigoPresentsFade {
+  from { opacity: 0.5; }
+  to   { opacity: 1;   }
+}
+
+/* ============================================================
+   Loading intro screen — 2nd screen. Asset preloader with manual
+   PLAY entry (user opts in after the bar fills). Removes the
+   "auto-launches into the game" feel of the previous flow.
    ============================================================ */
 .loading-intro {
   position: fixed;
@@ -103,6 +191,39 @@
   color: rgba(214,161,74,0.5);
   text-transform: lowercase;
   font-weight: 600;
+}
+/* PLAY button — appears only after the bar fills (.ready). Replaces
+   the auto-hide behaviour so the user explicitly opts into the game. */
+.loading-play {
+  display: none;
+  margin-top: 6px;
+  padding: 14px 60px;
+  font-family: inherit;
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  color: #ffffff;
+  background: linear-gradient(180deg, #ff8030 0%, #d4601a 50%, #802808 100%);
+  border: 2px solid #ffae50;
+  border-radius: 14px;
+  cursor: pointer;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+  transition: transform 0.12s ease, filter 0.12s ease;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.4),
+    0 4px 14px rgba(0,0,0,0.5),
+    0 0 28px rgba(255,140,40,0.6);
+  animation: playPulse 1.4s ease-in-out infinite alternate;
+}
+.loading-intro.ready .loading-play { display: inline-block; }
+.loading-intro.ready .loading-bar,
+.loading-intro.ready .loading-text,
+.loading-intro.ready .loading-pct { display: none; }
+.loading-play:hover  { transform: translateY(-2px); filter: brightness(1.1); }
+.loading-play:active { transform: translateY(1px); }
+@keyframes playPulse {
+  from { box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), 0 4px 14px rgba(0,0,0,0.5), 0 0 22px rgba(255,140,40,0.5); }
+  to   { box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), 0 4px 14px rgba(0,0,0,0.5), 0 0 40px rgba(255,180,80,0.9); }
 }
 
 html, body {
@@ -989,22 +1110,23 @@ button:active img {
    Free Spins banner (top of slot)
    ============================================================ */
 
-/* FS banner uses the rendered special-asset1.png horizontal ornate frame.
-   Larger now (was 660x130 → 820x170) and text padding tuned to clear the
-   central medallion decoration on the asset (so labels/values sit on the
-   empty stone surface, not over the medallion). */
+/* FS banner — repositioned ABOVE the slot frame's cell area so it doesn't
+   cover the top row of symbols. The slot grid starts at y=106 inside the
+   slot-frame (which itself starts at the play-area's top:0); we shrink the
+   banner to ~110px and let it sit in the decorative carved-stone top of
+   the slot frame, which has no cells to obscure. */
 .fs-banner {
   position: absolute;
-  left: 580px;
-  top: 18px;
-  width: 820px;
-  height: 170px;
+  left: 620px;
+  top: 5px;
+  width: 740px;
+  height: 95px;
   z-index: 14;
   display: none;
   flex-direction: column;
   justify-content: center;
   gap: 10px;
-  padding: 36px 110px;
+  padding: 22px 90px;
   background-image: url("assets/special-asset1.png");
   background-size: 100% 100%;
   background-repeat: no-repeat;
@@ -1029,23 +1151,23 @@ button:active img {
   width: 100%;
 }
 .fs-label {
-  font-size: 18px;
+  font-size: 14px;
   font-weight: 700;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.2em;
   color: #d6a14a;
   text-transform: uppercase;
   text-shadow: 0 1px 2px rgba(0,0,0,0.9);
   text-align: left;
-  padding-left: 20px;
+  padding-left: 12px;
 }
 .fs-value {
-  font-size: 30px;
+  font-size: 22px;
   font-weight: 900;
   color: #ffe8a1;
-  text-shadow: 0 2px 4px rgba(0,0,0,0.9), 0 0 12px rgba(255,200,80,0.5);
+  text-shadow: 0 2px 4px rgba(0,0,0,0.9), 0 0 10px rgba(255,200,80,0.5);
   letter-spacing: -0.01em;
   text-align: right;
-  padding-right: 20px;
+  padding-right: 12px;
   line-height: 1;
 }
 
