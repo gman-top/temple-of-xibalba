@@ -316,17 +316,20 @@ html, body {
    absolutely positioned at the same coords, so swapping is a pure
    opacity cross-fade. Pulsing glow drives the "magical" feel during
    the bonus round. */
+/* FS frame sits at EXACT same position/size as the base. The glow is
+   baked into the asset, so no CSS drop-shadow (which would expand the
+   visual bounds and shove decorations into the spin-button area). The
+   pulse is just a brightness/saturation oscillation. */
 .slot-frame-fs {
   z-index: 7;
   opacity: 0;
-  filter: drop-shadow(0 0 32px rgba(255,120,40,0.55));
   animation: fsFramePulse 2.2s ease-in-out infinite alternate;
 }
 #stage.fs-active .slot-frame-fs { opacity: 1; }
 #stage.fs-active .slot-frame:not(.slot-frame-fs) { opacity: 0; }
 @keyframes fsFramePulse {
-  from { filter: drop-shadow(0 0 26px rgba(255,120,40,0.45)) drop-shadow(0 0 18px rgba(74,214,200,0.25)); }
-  to   { filter: drop-shadow(0 0 44px rgba(255,160,60,0.85)) drop-shadow(0 0 28px rgba(120,230,220,0.55)); }
+  from { filter: brightness(0.92) saturate(1.05); }
+  to   { filter: brightness(1.10) saturate(1.18); }
 }
 
 /* Reel grid: 5 columns, each is a clip window with a sliding track of 7

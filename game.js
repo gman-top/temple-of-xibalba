@@ -103,16 +103,19 @@
   // maps to undefined and the cell silently fails to render.
   const REG_WEIGHTS = [3, 4, 5, 6, 9, 12, 15, 18, 22];
 
-  // base payouts: PAY_TABLE[symIdx][clusterSize - 5], clamped at len-1
+  // base payouts: PAY_TABLE[symIdx][clusterSize - 5], clamped at len-1.
+  // 9 rows = REG_ASSETS.length: jaguar / feather / mask-red are the three
+  // hero tiers at the top, followed by the 6 gem tiers.
   const PAY_TABLE = [
-    [25, 40, 70, 120, 200, 400, 700, 1200],   // idx 0 (highest)
-    [12, 20, 35,  60, 100, 200, 350,  600],
-    [ 6, 10, 18,  30,  50, 100, 180,  300],
-    [ 3,  5,  9,  15,  25,  50,  90,  150],
-    [ 2,  3,  5,   8,  14,  25,  45,   80],
-    [ 1, 1.5,2.5,  4,   7,  12,  22,   40],
-    [0.6, 1, 1.6,  3,   5,   9,  16,   28],
-    [0.4, 0.6,1.0, 2,   3,   6,  10,   18],  // idx 7 (lowest, most common)
+    [40, 60,100, 180, 300, 600,1000, 1800],   // idx 0 jaguar (rarest, highest)
+    [25, 40, 70, 120, 200, 400, 700, 1200],   // idx 1 feather
+    [15, 25, 45,  80, 140, 280, 480,  800],   // idx 2 red mask
+    [ 8, 12, 22,  40,  70, 140, 240,  400],   // idx 3 symbol04
+    [ 4,  6, 11,  20,  35,  70, 120,  200],   // idx 4 symbol05
+    [ 2,  3,  5,   8,  14,  28,  50,   85],   // idx 5 symbol06
+    [ 1, 1.5,2.5,  4,   7,  14,  25,   45],   // idx 6 symbol07
+    [0.6, 1, 1.6,  3,   5,  10,  18,   30],   // idx 7 symbol08
+    [0.4, 0.6,1.0, 2,   3,   6,  10,   18],   // idx 8 symbol09 (most common)
   ];
 
   function payForCluster(symIdx, size) {
@@ -983,6 +986,16 @@
     // naturally via the 8-row cap.
     refreshHUD();
 
+    // Hoisted so the FS-trigger branch (below the try) can read the value
+    // set inside the cascade loop without a scope error.
+    let scatterCount = 0;
+
+    // Safety net: if anything below throws, the unhandled error used to
+    // leave state.spinning=true forever — button visually spun but every
+    // subsequent click bounced off the early-return guard. The try/finally
+    // guarantees release.
+    try {
+
     // Reset multipliers per spin (unless in FS)
     if (!state.inFreeSpins) {
       state.cellMult = makeEmptyGrid(false);
@@ -1068,7 +1081,7 @@
     }
 
     // After cascades: count scatters → maybe trigger FS
-    let scatterCount = 0;
+    scatterCount = 0;
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
         if (state.grid[r][c] && state.grid[r][c].t === TY.SCAT) scatterCount++;
@@ -1098,7 +1111,21 @@
     btnSpin.disabled = false;
     btnSpin.classList.remove("spinning");
 
-    // FS trigger / continue
+    } catch (err) {
+      // Anything in the cascade chain blew up — surface the error but
+      // still release the spin lock (handled by the finally below).
+      console.error("spin error:", err);
+    } finally {
+      // Re-assert the unlock so we never leave the button stuck spinning.
+      state.spinning = false;
+      btnSpin.disabled = false;
+      btnSpin.classList.remove("spinning");
+    }
+
+    // FS trigger / continue. Outside the try because these RECURSIVELY call
+    // spin() and the recursion must not be inside the parent's try (it
+    // would await its own descendants and we don't want the finally to
+    // fire while a nested chain is still running).
     if (scatterCount >= 3) {
       await triggerOrRetrigger(scatterCount);
     } else if (state.inFreeSpins) {
@@ -1631,14 +1658,26 @@
 
     const playBtn = document.getElementById("loadingPlay");
     if (playBtn) {
-      playBtn.addEventListener("click", () => {
+      const enter = () => {
         overlay.classList.add("hidden");
         // First user gesture — unlock + kick off the background music.
         if (window.__xibalbaAudio) {
           window.__xibalbaAudio.playSfx("click");
           window.__xibalbaAudio.startBgm("base");
         }
-      });
+      };
+      playBtn.addEventListener("click", enter);
+      // Space / Enter while the loading screen is up also triggers entry —
+      // keyboard users (and impatient testers) don't have to find the button.
+      const onKey = (e) => {
+        if (!overlay.classList.contains("ready") || overlay.classList.contains("hidden")) return;
+        if (e.code === "Space" || e.code === "Enter") {
+          e.preventDefault();
+          enter();
+          document.removeEventListener("keydown", onKey);
+        }
+      };
+      document.addEventListener("keydown", onKey);
     }
 
     updateBar();
