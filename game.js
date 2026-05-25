@@ -34,7 +34,6 @@
 
   // 8 regular paying symbols (idx 0..7, 0 = highest pay)
   const REG_ASSETS = ["symbol02","symbol03","symbol04","symbol05","symbol06","symbol07","symbol08","symbol09"];
-  const SCATTER_ASSET = "symbol01";
 
   // Weights skewed toward common low-tier symbols so clusters form often,
   // but not so extreme that cascades chain forever.
@@ -59,7 +58,8 @@
   }
 
   // Probabilities for special symbols on initial fill / cascade fill
-  const SCATTER_FILL_PROB = 0.025;  // per cell on each fill — capped at 1/reel
+  const SCATTER_FILL_PROB    = 0.025;  // base-game spawn rate per cell (capped 1/reel)
+  const SCATTER_FILL_PROB_FS = 0.004;  // ~6× rarer during free spins to prevent runaway retriggers
 
   // Dig-up probabilities (per cleared cell, after a cluster pop, before refill)
   const DIG = {
@@ -71,7 +71,16 @@
 
   const BET_LEVELS = [0.20, 0.50, 1.00, 2.00, 5.00, 10.00, 25.00, 50.00];
 
-  function freeSpinsForScatters(n) {
+  function freeSpinsForScatters(n, isRetrigger) {
+    // Retriggers award FEWER spins than the initial trigger so a streak of
+    // lucky scatter spawns can't keep the round running forever.
+    if (isRetrigger) {
+      if (n >= 6) return 10;
+      if (n >= 5) return 8;
+      if (n >= 4) return 6;
+      if (n >= 3) return 5;
+      return 0;
+    }
     if (n >= 6) return 20;
     if (n >= 5) return 15;
     if (n >= 4) return 12;
@@ -192,7 +201,8 @@
     const scattersPerCol = new Array(COLS).fill(0);
     for (let c = 0; c < COLS; c++) {
       for (let r = 0; r < ROWS; r++) {
-        if (scattersPerCol[c] === 0 && Math.random() < SCATTER_FILL_PROB) {
+        const scatProb = state.inFreeSpins ? SCATTER_FILL_PROB_FS : SCATTER_FILL_PROB;
+        if (scattersPerCol[c] === 0 && Math.random() < scatProb) {
           g[r][c] = { t: TY.SCAT };
           scattersPerCol[c] = 1;
         } else {
@@ -270,8 +280,11 @@
       sym.style.opacity = "1";
       sym.style.backgroundImage = `url("assets/${REG_ASSETS[v.i]}.png")`;
     } else if (v.t === TY.SCAT) {
+      // Scatter visual = scatter-medallion.png (drawn via .cell.scatter .symbol
+      // CSS rule). No JS-set fallback PNG so the old symbol01.png ×90 pyramid
+      // can't leak through.
       sym.style.opacity = "1";
-      sym.style.backgroundImage = `url("assets/${SCATTER_ASSET}.png")`;
+      sym.style.backgroundImage = "";
       cell.classList.add("scatter");
     } else if (v.t === TY.WILD) {
       sym.style.opacity = "0";
@@ -376,7 +389,8 @@
         } else {
           // Fill with new symbol, with small chance of scatter (1/reel cap)
           const colHasScatter = grid.some((row) => row[c] && row[c].t === TY.SCAT);
-          if (!colHasScatter && Math.random() < SCATTER_FILL_PROB) {
+          const scatProb = state.inFreeSpins ? SCATTER_FILL_PROB_FS : SCATTER_FILL_PROB;
+          if (!colHasScatter && Math.random() < scatProb) {
             grid[r][c] = { t: TY.SCAT };
           } else {
             grid[r][c] = rndCell();
@@ -1030,7 +1044,7 @@
   }
 
   async function triggerOrRetrigger(scatterCount) {
-    const award = freeSpinsForScatters(scatterCount);
+    const award = freeSpinsForScatters(scatterCount, state.inFreeSpins);
     if (!state.inFreeSpins) {
       // Trigger: convert scatters to wilds or ×10 multipliers
       let convertedWilds = 0;
@@ -1457,8 +1471,8 @@
       "spin-button.png", "button-autoplay.png", "button-fastfwd.png",
       "plus.png", "minus.png",
       // Regular paying symbols
-      "symbol01.png", "symbol02.png", "symbol03.png", "symbol04.png",
-      "symbol05.png", "symbol06.png", "symbol07.png", "symbol08.png", "symbol09.png",
+      "symbol02.png", "symbol03.png", "symbol04.png", "symbol05.png",
+      "symbol06.png", "symbol07.png", "symbol08.png", "symbol09.png",
       // Special grid symbols
       "scatter-medallion.png", "wild-pyramid.png", "mult-pyramid-base.png",
       "booster-symbol.png", "destroyer-symbol.png",
