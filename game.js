@@ -28,6 +28,63 @@
 (() => {
   "use strict";
 
+  // ---- audio --------------------------------------------------------------
+  // Lightweight sound bank — one Audio per event, plus an HTML5 audio element
+  // for the looping background tracks. Pre-warmed on first user gesture
+  // (browsers block autoplay until the user interacts) so the play button
+  // click double-duties as the audio unlock.
+  const SFX = {
+    click:        new Audio("assets/sounds/click.ogg"),
+    spin:         new Audio("assets/sounds/spin.ogg"),
+    reelStop:     new Audio("assets/sounds/reel-stop.ogg"),
+    clusterPop:   new Audio("assets/sounds/cluster-pop.ogg"),
+    scatter:      new Audio("assets/sounds/scatter.ogg"),
+    wildDig:      new Audio("assets/sounds/wild-dig.ogg"),
+    multBump:     new Audio("assets/sounds/mult-bump.ogg"),
+    winSmall:     new Audio("assets/sounds/win-small.ogg"),
+    winMedium:    new Audio("assets/sounds/win-medium.ogg"),
+    winBig:       new Audio("assets/sounds/win-big.ogg"),
+    winMega:      new Audio("assets/sounds/win-mega.ogg"),
+    fsTrigger:    new Audio("assets/sounds/fs-trigger.ogg"),
+    fsEnd:        new Audio("assets/sounds/fs-end.ogg"),
+    buyBonus:     new Audio("assets/sounds/buy-bonus.ogg"),
+    coinTick:     new Audio("assets/sounds/coin-tick.ogg"),
+  };
+  for (const k in SFX) { SFX[k].preload = "auto"; SFX[k].volume = 0.45; }
+  SFX.click.volume = 0.35;
+  SFX.coinTick.volume = 0.25;
+  SFX.winMega.volume = 0.7;
+
+  const bgmBase = new Audio("assets/sounds/bg-loop-base.ogg");
+  const bgmFS   = new Audio("assets/sounds/bg-loop-fs.ogg");
+  bgmBase.loop = true; bgmBase.volume = 0.22;
+  bgmFS.loop = true;   bgmFS.volume = 0.28;
+
+  let audioMuted = false;
+  function playSfx(key) {
+    if (audioMuted) return;
+    const s = SFX[key];
+    if (!s) return;
+    // Clone the node so rapid-fire triggers (cluster cascades, multi-clicks)
+    // overlap instead of cutting each other off.
+    const c = s.cloneNode(true);
+    c.volume = s.volume;
+    c.play().catch(() => {});
+  }
+  function startBgm(which) {
+    if (audioMuted) return;
+    const target = which === "fs" ? bgmFS : bgmBase;
+    const other  = which === "fs" ? bgmBase : bgmFS;
+    other.pause(); other.currentTime = 0;
+    target.play().catch(() => {});
+  }
+  function stopBgm() { bgmBase.pause(); bgmFS.pause(); }
+  // Expose globally for the loading-intro PLAY button to call (it lives
+  // outside this IIFE-managed code path).
+  window.__xibalbaAudio = { playSfx, startBgm, stopBgm,
+    setMuted(m) { audioMuted = m; if (m) stopBgm(); else startBgm("base"); } };
+
+
   // ---- config ----------------------------------------------------------------
   const COLS = 5;
   const ROWS = 7;
@@ -557,6 +614,10 @@
   async function maybeShowBigWin(win, bet) {
     const label = tierLabel(win, bet);
     if (!label) return;
+    // Match the audio celebration to the size of the win
+    if (label === "MEGA WIN") playSfx("winMega");
+    else if (label === "HUGE WIN") playSfx("winBig");
+    else playSfx("winMedium");
     winBannerText.textContent = label;
     winBanner.classList.add("visible");
     await ffWait(1600);
@@ -829,7 +890,9 @@
       return { destroyed: [] };
     }
 
-    // Set grid types
+    // Set grid types + matching audio cue
+    if (result.wilds.length)    playSfx("wildDig");
+    if (result.scatters.length) playSfx("scatter");
     for (const [r, c] of result.wilds) {
       state.grid[r][c] = { t: TY.WILD, m: state.cellMult[r][c] >= 2 ? 100 : 10 };
     }
@@ -926,6 +989,7 @@
     }
     if (isWildSpin) state.guaranteedWilds = 1;
 
+    playSfx("spin");
     await animateSpinIn(randomGrid());
 
     // Cascade loop
@@ -933,6 +997,7 @@
     while (true) {
       const clusters = findClusters(state.grid);
       if (!clusters.length) break;
+      playSfx("clusterPop");
 
       let stepWin = 0;
       const allCells = [];
@@ -1097,6 +1162,8 @@
       state.freeSpinsWin = 0;
       // Swap to the FS-themed slot frame (red ember + cyan magical glow)
       stage.classList.add("fs-active");
+      playSfx("fsTrigger");
+      if (window.__xibalbaAudio) window.__xibalbaAudio.startBgm("fs");
       refreshFSBanner(); refreshBonusActive();
 
       // Announcement modal: shows the count (with the +5/+3/+2 retrigger info),
@@ -1177,8 +1244,10 @@
     state.freeSpinsLeft = 0;
     state.freeSpinsTotal = 0;
     state.freeSpinsWin = 0;
-    // Restore base slot frame
+    // Restore base slot frame + base BGM
     stage.classList.remove("fs-active");
+    playSfx("fsEnd");
+    if (window.__xibalbaAudio) window.__xibalbaAudio.startBgm("base");
     refreshFSBanner(); refreshBonusActive();
     // Clear multipliers between rounds
     state.cellMult = makeEmptyGrid(false);
@@ -1322,6 +1391,7 @@
 
   // ---- buttons --------------------------------------------------------------
   btnSpin.addEventListener("click", () => {
+    playSfx("click");
     if (state.autoplayLeft > 0) {
       state.autoplayLeft = 0;
       btnAutoplay.classList.remove("active");
@@ -1345,6 +1415,8 @@
   });
 
   btnBuyBonus.addEventListener("click", () => {
+    playSfx("click");
+    void 0; // tag below as the original handler
     if (state.spinning || state.inFreeSpins) return;
     if (state.wildSpinArmed) {
       // Mutually exclusive with Wild Spin — flash to indicate it's unavailable
@@ -1376,6 +1448,7 @@
   bbConfirmModal.addEventListener("click", (e) => { if (e.target === bbConfirmModal) closeModal(bbConfirmModal); });
   bbConfirmBack.addEventListener("click", () => closeModal(bbConfirmModal));
   bbConfirmOk.addEventListener("click", () => {
+    playSfx("buyBonus");
     if (pendingBuyOpt) buyBonus(pendingBuyOpt);
     pendingBuyOpt = null;
   });
@@ -1403,6 +1476,7 @@
   }
 
   btnWildSpin.addEventListener("click", () => {
+    playSfx("click");
     if (state.spinning || state.inFreeSpins) return;
     if (state.wildSpinArmed) {
       state.wildSpinArmed = false;
@@ -1559,6 +1633,11 @@
     if (playBtn) {
       playBtn.addEventListener("click", () => {
         overlay.classList.add("hidden");
+        // First user gesture — unlock + kick off the background music.
+        if (window.__xibalbaAudio) {
+          window.__xibalbaAudio.playSfx("click");
+          window.__xibalbaAudio.startBgm("base");
+        }
       });
     }
 
