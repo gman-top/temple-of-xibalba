@@ -270,7 +270,7 @@
     const multEl = cell.querySelector(".multiplier");
     const v = state.grid[r][c];
 
-    cell.classList.remove("scatter", "wild", "booster", "destroyer", "mult-only", "has-mult", "has-mult-high");
+    cell.classList.remove("scatter", "wild", "booster", "destroyer", "mult-only", "has-mult", "has-mult-high", "mult-low", "mult-mid", "mult-high");
 
     if (!v) {
       sym.style.opacity = "0";
@@ -306,7 +306,13 @@
       multEl.classList.toggle("big", m >= 8);
       // Lavender highlight on cells with an active multiplier
       cell.classList.add(m >= 6 ? "has-mult-high" : "has-mult");
-      // If the cell has no symbol (empty + multiplier), render as a gold medallion
+      // Pick the pyramid tier asset by multiplier value:
+      //   ≤10  → low  (gold)
+      //   ≤50  → mid  (orange-fire)
+      //   else → high (purple-magical)
+      const tier = m <= 10 ? "mult-low" : m <= 50 ? "mult-mid" : "mult-high";
+      cell.classList.add(tier);
+      // If the cell has no symbol (empty + multiplier), render as full pyramid
       if (!v) cell.classList.add("mult-only");
     } else {
       multEl.textContent = "";
@@ -1474,7 +1480,8 @@
       "symbol02.png", "symbol03.png", "symbol04.png", "symbol05.png",
       "symbol06.png", "symbol07.png", "symbol08.png", "symbol09.png",
       // Special grid symbols
-      "scatter-medallion.png", "wild-pyramid.png", "mult-pyramid-base.png",
+      "scatter-medallion.png", "wild-pyramid.png",
+      "mult-pyramid-low.png", "mult-pyramid-mid.png", "mult-pyramid-high.png",
       "booster-symbol.png", "destroyer-symbol.png",
       // Modal frames + titles
       "modal-panel-bg.png", "card-buy-option-bg.png", "confirm-jar.png",

@@ -597,6 +597,8 @@ button:active img {
     inset 0 0 18px rgba(255, 180, 40, 0.35);
 }
 
+/* SMALL multiplier badge — appears centered in the cell when the cell
+   still has a symbol. Solid tier-colored text with strong glow + scale-pop. */
 .cell .multiplier {
   position: absolute;
   inset: 0;
@@ -604,50 +606,71 @@ button:active img {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 26px;
+  font-size: 28px;
   font-weight: 900;
-  color: #ffae00;
-  text-shadow:
-    0 0 5px rgba(0,0,0,0.95),
-    0 2px 3px rgba(0,0,0,0.95),
-    0 0 10px rgba(255,150,0,0.5);
   letter-spacing: -0.04em;
   pointer-events: none;
   animation: multPop 0.42s cubic-bezier(.3,1.6,.5,1);
-}
-.cell .multiplier.big {
-  font-size: 30px;
   color: #ffe066;
+  text-shadow:
+    0 0 4px rgba(0,0,0,0.95),
+    0 2px 3px rgba(0,0,0,0.95),
+    0 0 12px rgba(255,180,40,0.7);
+}
+.cell .multiplier.big { font-size: 34px; }
+.cell.mult-mid .multiplier {
+  color: #ff8030;
+  text-shadow:
+    0 0 4px rgba(0,0,0,0.95),
+    0 2px 3px rgba(0,0,0,0.95),
+    0 0 14px rgba(255,90,20,0.8);
+}
+.cell.mult-high .multiplier {
+  color: #b0d0ff;
+  text-shadow:
+    0 0 5px rgba(0,0,0,0.95),
+    0 2px 3px rgba(0,0,0,0.95),
+    0 0 16px rgba(140,170,255,0.9);
 }
 
-/* Empty cells that retain just a multiplier marker render as a GOLD STEPPED
-   AZTEC PYRAMID PNG with the ×N text overlaid. */
+/* BIG version: empty cell with just a multiplier renders as a full PYRAMID
+   PNG with the ×N text inside the pyramid's central cartouche. Three
+   tier-colored assets, picked via .mult-low / .mult-mid / .mult-high. */
 .cell.mult-only .symbol { display: none; }
 .cell.mult-only .multiplier {
   inset: 4%;
-  background-image: url("assets/mult-pyramid-base.png");
   background-size: contain;
   background-repeat: no-repeat;
   background-position: center;
-  color: #ffffff;
   border: 0;
   border-radius: 0;
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 900;
   letter-spacing: -0.03em;
-  /* Push the text down to land in the pyramid's central rectangular cartouche
-     (the empty placeholder area in the rendered asset). */
-  padding-top: 38%;
-  align-items: flex-start;
-  text-shadow:
-    0 1px 2px rgba(0,0,0,0.85),
-    0 0 6px rgba(0,0,0,0.6);
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.95), 0 0 8px rgba(0,0,0,0.6);
   box-shadow: none;
+}
+.cell.mult-low.mult-only .multiplier {
+  background-image: url("assets/mult-pyramid-low.png");
   filter: drop-shadow(0 0 14px rgba(255,200,80,0.85));
+}
+.cell.mult-mid.mult-only .multiplier {
+  background-image: url("assets/mult-pyramid-mid.png");
+  filter: drop-shadow(0 0 16px rgba(255,140,40,0.9));
+}
+.cell.mult-high.mult-only .multiplier {
+  background-image: url("assets/mult-pyramid-high.png");
+  filter: drop-shadow(0 0 20px rgba(150,150,255,1)) drop-shadow(0 0 32px rgba(120,80,200,0.7));
+  animation: multPop 0.42s cubic-bezier(.3,1.6,.5,1), highPulse 1.6s ease-in-out infinite alternate;
 }
 @keyframes multPop {
   from { transform: scale(0); opacity: 0; }
   to   { transform: scale(1); opacity: 1; }
+}
+@keyframes highPulse {
+  from { filter: drop-shadow(0 0 18px rgba(150,150,255,0.9)) drop-shadow(0 0 28px rgba(120,80,200,0.6)); }
+  to   { filter: drop-shadow(0 0 28px rgba(180,200,255,1))   drop-shadow(0 0 48px rgba(160,120,255,0.9)); }
 }
 
 /* Scatter = round GOLD AZTEC MEDALLION. Uses the rendered scatter-medallion
