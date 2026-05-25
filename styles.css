@@ -327,10 +327,11 @@ html, body {
   transition: transform 0.12s ease, filter 0.12s ease;
   filter: drop-shadow(0 2px 5px rgba(0,0,0,0.6));
 }
-/* Pinned to the top-right corner of the 1920×1080 stage, above the
-   character. Sound first (closer to right edge), then Menu next to it. */
-.btn-sound { top: 22px; left: 1840px; }
-.btn-menu  { top: 22px; left: 1760px; }
+/* Pinned to the top-right of the 1920×1080 stage, slightly inside the
+   right edge so portrait/letterboxed viewports don't push them out of
+   view. Sound first (rightmost), Menu next to it. */
+.btn-sound { top: 22px; left: 1830px; }
+.btn-menu  { top: 22px; left: 1740px; }
 .btn-menu img,
 .btn-sound img {
   width: 100%;
@@ -360,8 +361,12 @@ html, body {
   z-index: 7;
   opacity: 0;
   animation: fsFramePulse 2.2s ease-in-out infinite alternate;
-  -webkit-mask: linear-gradient(180deg, black 0%, black 78%, transparent 88%);
-          mask: linear-gradient(180deg, black 0%, black 78%, transparent 88%);
+  /* HARD cut at 80% — below this height the FS frame is fully clipped,
+     so the base frame's button-row decoration shows through cleanly and
+     the overlay buttons (positioned to match the BASE frame) sit on the
+     correct visual rails. No gradient fade-out, just a clean horizon. */
+  -webkit-mask: linear-gradient(180deg, black 0%, black 80%, transparent 80%);
+          mask: linear-gradient(180deg, black 0%, black 80%, transparent 80%);
 }
 #stage.fs-active .slot-frame-fs { opacity: 1; }
 /* Keep the base frame visible underneath the FS frame during FS so its
