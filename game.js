@@ -35,17 +35,17 @@
   // 8 regular paying symbols (idx 0..7, 0 = highest pay)
   // symbol01 and symbol02 are reserved as multiplier-badge BASES (frame
   // PNG, ×N rendered as 3D text overlay via CSS). symbol03 is dropped
-  // because it's visually identical to scatter-medallion (round gold
-  // Aztec face) and would confuse the player. Regular paying symbols
-  // start at symbol04.
-  const REG_ASSETS = ["symbol04","symbol05","symbol06","symbol07","symbol08","symbol09"];
+  // because it's visually identical to scatter-medallion. Regular paying
+  // symbols are symbol04..symbol09 + symbol-jaguar (the gold jaguar mask
+  // — highest-paying premium tile, slot in at idx 0).
+  const REG_ASSETS = ["symbol-jaguar","symbol04","symbol05","symbol06","symbol07","symbol08","symbol09"];
 
   // Weights skewed toward common low-tier symbols so clusters form often,
   // but not so extreme that cascades chain forever.
   // Per-symbol relative weights. Length MUST match REG_ASSETS or
   // pickRegSymbol returns an index that maps to undefined and the cell
   // silently fails to render. (Hard-learned bug.)
-  const REG_WEIGHTS = [4, 6, 9, 13, 17, 22];
+  const REG_WEIGHTS = [3, 4, 6, 9, 13, 17, 22];
 
   // base payouts: PAY_TABLE[symIdx][clusterSize - 5], clamped at len-1
   const PAY_TABLE = [
@@ -1468,12 +1468,17 @@
   refreshFSBanner(); refreshBonusActive();
   renderPaytable();
 
-  // Loading intro: preload only the assets needed for FIRST PAINT (the
-  // background scene, slot frame, regular gem symbols and HUD buttons —
-  // everything the user sees on the initial screen). Modal / FS / special-
-  // tier assets load lazily in the background AFTER the intro fades out,
-  // so the bar fills quickly instead of stalling on megabytes the user
-  // doesn't immediately see.
+  // Three-step entry flow:
+  //   1) Aigo brand splash (~1.8s) — fades out
+  //   2) Loading screen: critical assets preload; bar fills; PLAY button shows
+  //   3) User clicks PLAY → game appears
+  (function runAigoSplash() {
+    const splash = document.getElementById("aigoSplash");
+    if (!splash) return;
+    // Hold the splash on screen, then fade
+    setTimeout(() => splash.classList.add("hidden"), 1800);
+  })();
+
   (function runLoadingIntro() {
     const overlay = document.getElementById("loadingIntro");
     if (!overlay) return;
@@ -1486,8 +1491,10 @@
       "buy-bonus-button.png", "wildspin-button-off.png", "wildspin-button-on.png",
       "spin-button.png", "button-autoplay.png", "button-fastfwd.png",
       "plus.png", "minus.png",
+      "symbol-jaguar.png",
       "symbol04.png", "symbol05.png",
       "symbol06.png", "symbol07.png", "symbol08.png", "symbol09.png",
+      "aigo-star.png", "aigo-logo.svg",
     ];
 
     // Loaded in the background AFTER the intro hides — modal art, special
@@ -1537,12 +1544,20 @@
       const elapsed = performance.now() - startedAt;
       const wait = Math.max(0, MIN_MS - elapsed);
       setTimeout(() => {
-        overlay.classList.add("hidden");
-        // Continue prefetching the rest in the background — they'll be
-        // cached by the time the user opens a modal or hits free spins.
+        // Show PLAY button (user-initiated entry); also kick off deferred
+        // asset preload in the background so it's cached by the time the
+        // user actually opens a modal / hits free spins.
+        overlay.classList.add("ready");
         DEFERRED.forEach(loadOne);
       }, wait);
     });
+
+    const playBtn = document.getElementById("loadingPlay");
+    if (playBtn) {
+      playBtn.addEventListener("click", () => {
+        overlay.classList.add("hidden");
+      });
+    }
 
     updateBar();
   })();
