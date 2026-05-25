@@ -1436,26 +1436,75 @@
   refreshFSBanner(); refreshBonusActive();
   renderPaytable();
 
-  // Loading intro: animate the progress bar then fade the overlay out. Driven
-  // here (not by real network progress) since all assets are static and load
-  // before this script runs; the intro is purely a polish/branding moment.
+  // Loading intro: actually preload every PNG used by the game and drive
+  // the progress bar from REAL load progress. Bar reaches 100% only when
+  // the last asset finishes. A minimum 900ms display keeps the brand
+  // moment visible even when assets are cached.
   (function runLoadingIntro() {
     const overlay = document.getElementById("loadingIntro");
     if (!overlay) return;
     const fill = document.getElementById("loadingBarFill");
     const pct  = document.getElementById("loadingPct");
-    const DUR_MS = 2400;
-    const start  = performance.now();
-    function step(now) {
-      const t = Math.min(1, (now - start) / DUR_MS);
-      // Ease-out curve so the bar feels weighty at the start, snappy at the end
-      const eased = 1 - Math.pow(1 - t, 2);
-      const p = Math.round(eased * 100);
+
+    // Every PNG the game touches. Listed explicitly so a missing/typo asset
+    // is visible here rather than silently ignored at runtime.
+    const ASSETS = [
+      // Background / scene
+      "bg.png", "logo.png", "left-asset.png", "bottom.png", "slot-frame.png",
+      "fire-left.png", "fire-right.png",
+      // HUD buttons
+      "buy-bonus-button.png", "wildspin-button-off.png", "wildspin-button-on.png",
+      "spin-button.png", "button-autoplay.png", "button-fastfwd.png",
+      "plus.png", "minus.png",
+      // Regular paying symbols
+      "symbol01.png", "symbol02.png", "symbol03.png", "symbol04.png",
+      "symbol05.png", "symbol06.png", "symbol07.png", "symbol08.png", "symbol09.png",
+      // Special grid symbols
+      "scatter-medallion.png", "wild-pyramid.png", "mult-pyramid-base.png",
+      "booster-symbol.png", "destroyer-symbol.png",
+      // Modal frames + titles
+      "modal-panel-bg.png", "card-buy-option-bg.png", "confirm-jar.png",
+      "title-wild-spin.png", "title-buy-free-spins.png",
+      "title-free-spins.png", "title-bonus-game.png",
+      // Modal buttons + arrows
+      "btn-activate.png", "btn-buy.png", "btn-buy-disabled.png",
+      "btn-ok.png", "btn-back.png", "btn-close-x.png",
+      "arrow-left.png", "arrow-right.png",
+      // Buy FS pyramid icons
+      "pyramid-stack.png",
+      // FS overlays + banner panels
+      "fs-trigger-screen.png", "fs-portal-bg.png",
+      "special-asset1.png", "right-special-asset-2.png",
+    ];
+
+    const MIN_MS = 900;
+    const startedAt = performance.now();
+    let loaded = 0;
+    const total = ASSETS.length;
+
+    function updateBar() {
+      const p = Math.round((loaded / total) * 100);
       if (fill) fill.style.width = p + "%";
       if (pct)  pct.textContent  = p + "%";
-      if (t < 1) requestAnimationFrame(step);
-      else setTimeout(() => overlay.classList.add("hidden"), 200);
     }
-    requestAnimationFrame(step);
+
+    function loadOne(src) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        // Resolve either way — a missing PNG shouldn't block the intro
+        const done = () => { loaded++; updateBar(); resolve(); };
+        img.onload = done;
+        img.onerror = done;
+        img.src = "assets/" + src;
+      });
+    }
+
+    Promise.all(ASSETS.map(loadOne)).then(() => {
+      const elapsed = performance.now() - startedAt;
+      const wait = Math.max(0, MIN_MS - elapsed);
+      setTimeout(() => overlay.classList.add("hidden"), wait);
+    });
+
+    updateBar();
   })();
 })();
