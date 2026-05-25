@@ -105,12 +105,13 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  /* Slot scene shows clearly behind a vignette + dim layer — vignette
-     darkens edges to focus the eye on the logo/bar, but the temple is
-     plainly visible so the brand moment SITS on the actual game world. */
+  /* Self-contained CSS gradient — renders the instant the page parses, no
+     waiting on a megabyte PNG that would leave the loading screen looking
+     broken/blank during the very thing it's meant to mask. Dark night-sky
+     blue at the corners, warm amber bloom behind the logo. */
   background:
-    radial-gradient(ellipse at center, rgba(20,10,30,0.35) 0%, rgba(5,2,8,0.85) 75%, rgba(0,0,0,0.95) 100%),
-    url("assets/bg.png") center/cover no-repeat;
+    radial-gradient(ellipse 60% 50% at 50% 40%, rgba(120, 70, 30, 0.55) 0%, rgba(50, 20, 10, 0.25) 50%, transparent 75%),
+    radial-gradient(ellipse at center, #1a1228 0%, #0a0815 60%, #02010a 100%);
   gap: 26px;
   transition: opacity 0.6s ease, visibility 0.6s ease;
 }
@@ -199,8 +200,8 @@
    button, no CSS chrome — the asset is the chrome. */
 .loading-play {
   display: none;
-  width: 280px;
-  height: 100px;
+  width: 294px;
+  height: 105px;
   margin-top: 8px;
   background: url("assets/button-play.png") center/contain no-repeat;
   border: 0;
