@@ -452,6 +452,10 @@
     hudBalance.textContent = `${fmt(state.balance)} ETH`;
     hudBet.textContent = fmt(state.bet);
     hudWin.textContent = `${fmt(state.lastWin)} ETH`;
+    // Totem labels track the live bet — wild spin = 2× bet (matches the
+    // modal cost), so the user sees the same number both places.
+    const wsLabel = document.getElementById("wildSpinCostLabel");
+    if (wsLabel) wsLabel.textContent = `${fmt(state.bet * 2)} ETH`;
   }
   function refreshFSBanner() {
     if (state.inFreeSpins) {
