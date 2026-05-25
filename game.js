@@ -33,7 +33,10 @@
   const ROWS = 7;
 
   // 8 regular paying symbols (idx 0..7, 0 = highest pay)
-  const REG_ASSETS = ["symbol02","symbol03","symbol04","symbol05","symbol06","symbol07","symbol08","symbol09"];
+  // symbol01 and symbol02 are reserved as multiplier-badge BASES (the asset
+  // is the frame; the ×N number is rendered as 3D text overlay via CSS).
+  // Regular paying symbols start at symbol03.
+  const REG_ASSETS = ["symbol03","symbol04","symbol05","symbol06","symbol07","symbol08","symbol09"];
 
   // Weights skewed toward common low-tier symbols so clusters form often,
   // but not so extreme that cascades chain forever.
@@ -1477,7 +1480,8 @@
       "spin-button.png", "button-autoplay.png", "button-fastfwd.png",
       "plus.png", "minus.png",
       // Regular paying symbols
-      "symbol02.png", "symbol03.png", "symbol04.png", "symbol05.png",
+      "symbol01.png", "symbol02.png",
+      "symbol03.png", "symbol04.png", "symbol05.png",
       "symbol06.png", "symbol07.png", "symbol08.png", "symbol09.png",
       // Special grid symbols
       "scatter-medallion.png", "wild-pyramid.png",
