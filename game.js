@@ -641,10 +641,66 @@
 
   // ---- HUD / paytable --------------------------------------------------------
   const fmt = (v) => v.toFixed(2);
+  // Counter-up animation on the HUD WIN so the number visibly RACES up to
+  // its new value instead of just changing — much more "you won this!"
+  // than a silent text swap. Stores the in-flight animation handle so a
+  // new cascade step interrupts cleanly instead of stacking.
+  let hudWinFrom = 0, hudWinTo = 0, hudWinAnim = null;
+  function setHudWinAnimated(target) {
+    if (Math.abs(target - hudWinTo) < 0.001) return;
+    hudWinFrom = parseFloat((hudWin.textContent || "0").replace(/[^\d.]/g, "")) || 0;
+    hudWinTo   = target;
+    if (hudWinAnim) cancelAnimationFrame(hudWinAnim);
+    const startedAt = performance.now();
+    const DUR = 600;
+    function step(now) {
+      const t = Math.min(1, (now - startedAt) / DUR);
+      const eased = 1 - Math.pow(1 - t, 3);
+      const v = hudWinFrom + (hudWinTo - hudWinFrom) * eased;
+      hudWin.textContent = `${fmt(v)} ETH`;
+      if (t < 1) hudWinAnim = requestAnimationFrame(step);
+      else { hudWin.textContent = `${fmt(hudWinTo)} ETH`; hudWinAnim = null; }
+    }
+    hudWinAnim = requestAnimationFrame(step);
+    // Pulse + glow on the WIN cell so it visually pops when the value
+    // changes — the user said the per-spin win wasn't readable enough.
+    if (target > 0) {
+      hudWin.classList.remove("won"); void hudWin.offsetWidth; // restart anim
+      hudWin.classList.add("won");
+    }
+  }
+  // Center-bottom popup that shows the per-spin total with a count-up
+  // effect — paired with the HUD pulse for unmissable "you won X" feedback.
+  const spinWinPopup = document.getElementById("spinWinPopup");
+  const spinWinAmount = document.getElementById("spinWinAmount");
+  let spinWinHideT = null;
+  function showSpinWinPopup(amount) {
+    if (!spinWinPopup) return;
+    spinWinPopup.classList.add("visible");
+    spinWinPopup.setAttribute("aria-hidden", "false");
+    // Count up the amount inside the popup independently from the HUD,
+    // a touch faster so it feels punchy.
+    const startedAt = performance.now();
+    const DUR = 500;
+    (function tick(now) {
+      const t = Math.min(1, (now - startedAt) / DUR);
+      const eased = 1 - Math.pow(1 - t, 2);
+      spinWinAmount.textContent = `${fmt(amount * eased)} ETH`;
+      if (t < 1) requestAnimationFrame(tick);
+      else spinWinAmount.textContent = `${fmt(amount)} ETH`;
+    })(startedAt);
+    if (spinWinHideT) clearTimeout(spinWinHideT);
+    spinWinHideT = setTimeout(hideSpinWinPopup, 2400);
+  }
+  function hideSpinWinPopup() {
+    if (!spinWinPopup) return;
+    spinWinPopup.classList.remove("visible");
+    spinWinPopup.setAttribute("aria-hidden", "true");
+  }
   function refreshHUD() {
     hudBalance.textContent = `${fmt(state.balance)} ETH`;
     hudBet.textContent = fmt(state.bet);
-    hudWin.textContent = `${fmt(state.lastWin)} ETH`;
+    setHudWinAnimated(state.lastWin);
     // Totem labels track the live bet — wild spin = 2× bet (matches the
     // modal cost), so the user sees the same number both places.
     const wsLabel = document.getElementById("wildSpinCostLabel");
@@ -1119,6 +1175,7 @@
     btnSpin.classList.add("spinning");
     state.lastWin = 0;
     state.totalSpinWin = 0;
+    hideSpinWinPopup();   // clear previous spin's popup before next reel-in
     // Recent wins persist across spins — new wins prepend; old wins age out
     // naturally via the 8-row cap.
     refreshHUD();
@@ -1239,6 +1296,7 @@
     refreshHUD();
 
     if (state.totalSpinWin > 0) {
+      showSpinWinPopup(state.totalSpinWin);
       await maybeShowBigWin(state.totalSpinWin, effectiveBet);
     }
 
