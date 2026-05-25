@@ -656,7 +656,7 @@ button:active img {
   position: relative;
 }
 .cell.scatter .symbol {
-  background-image: url("assets/scatter-medallion.png") !important;
+  background-image: url("assets/scatter-medallion.png");
   background-size: contain;
   background-repeat: no-repeat;
   background-position: center;
