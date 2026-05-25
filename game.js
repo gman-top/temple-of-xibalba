@@ -1095,6 +1095,8 @@
       state.freeSpinsTotal = award;
       state.freeSpinsLeft = award;
       state.freeSpinsWin = 0;
+      // Swap to the FS-themed slot frame (red ember + cyan magical glow)
+      stage.classList.add("fs-active");
       refreshFSBanner(); refreshBonusActive();
 
       // Announcement modal: shows the count (with the +5/+3/+2 retrigger info),
@@ -1175,6 +1177,8 @@
     state.freeSpinsLeft = 0;
     state.freeSpinsTotal = 0;
     state.freeSpinsWin = 0;
+    // Restore base slot frame
+    stage.classList.remove("fs-active");
     refreshFSBanner(); refreshBonusActive();
     // Clear multipliers between rounds
     state.cellMult = makeEmptyGrid(false);
@@ -1510,7 +1514,7 @@
       "btn-ok.png", "btn-back.png", "btn-close-x.png",
       "arrow-left.png", "arrow-right.png",
       "pyramid-stack.png",
-      "fs-banner-bg-new.png", "fs-portal-bg.png",
+      "fs-banner-bg-new.png", "fs-portal-bg.png", "slot-frame-special-round.png",
       "special-asset1.png", "right-special-asset-2.png",
     ];
 
