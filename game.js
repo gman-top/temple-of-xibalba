@@ -1502,7 +1502,7 @@
       "btn-ok.png", "btn-back.png", "btn-close-x.png",
       "arrow-left.png", "arrow-right.png",
       "pyramid-stack.png",
-      "fs-trigger-screen.png", "fs-portal-bg.png",
+      "fs-banner-bg-new.png", "fs-portal-bg.png",
       "special-asset1.png", "right-special-asset-2.png",
     ];
 
