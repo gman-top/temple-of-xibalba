@@ -1435,4 +1435,27 @@
   refreshHUD();
   refreshFSBanner(); refreshBonusActive();
   renderPaytable();
+
+  // Loading intro: animate the progress bar then fade the overlay out. Driven
+  // here (not by real network progress) since all assets are static and load
+  // before this script runs; the intro is purely a polish/branding moment.
+  (function runLoadingIntro() {
+    const overlay = document.getElementById("loadingIntro");
+    if (!overlay) return;
+    const fill = document.getElementById("loadingBarFill");
+    const pct  = document.getElementById("loadingPct");
+    const DUR_MS = 2400;
+    const start  = performance.now();
+    function step(now) {
+      const t = Math.min(1, (now - start) / DUR_MS);
+      // Ease-out curve so the bar feels weighty at the start, snappy at the end
+      const eased = 1 - Math.pow(1 - t, 2);
+      const p = Math.round(eased * 100);
+      if (fill) fill.style.width = p + "%";
+      if (pct)  pct.textContent  = p + "%";
+      if (t < 1) requestAnimationFrame(step);
+      else setTimeout(() => overlay.classList.add("hidden"), 200);
+    }
+    requestAnimationFrame(step);
+  })();
 })();

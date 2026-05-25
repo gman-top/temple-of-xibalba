@@ -4,6 +4,105 @@
 
 * { box-sizing: border-box; }
 
+/* ============================================================
+   Loading intro screen — shown on first load, fades out after
+   the progress bar fills (~2.4s). BGaming/aigo-style: dark Aztec
+   backdrop, big centered logo, animated gold progress bar.
+   ============================================================ */
+.loading-intro {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(ellipse at center, #1a0d20 0%, #050208 70%, #000 100%),
+    url("assets/bg.png") center/cover no-repeat;
+  background-blend-mode: multiply;
+  gap: 26px;
+  transition: opacity 0.6s ease, visibility 0.6s ease;
+}
+.loading-intro.hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+.loading-logo {
+  width: 360px;
+  height: auto;
+  filter: drop-shadow(0 8px 30px rgba(255,180,60,0.5)) drop-shadow(0 0 60px rgba(255,200,80,0.3));
+  animation: loadLogoIn 0.8s cubic-bezier(.3,1.4,.4,1) both;
+}
+@keyframes loadLogoIn {
+  from { transform: scale(0.6); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+.loading-bar {
+  width: 360px;
+  height: 18px;
+  background: linear-gradient(180deg, rgba(0,0,0,0.7), rgba(20,10,4,0.85));
+  border: 2px solid #d6a14a;
+  border-radius: 10px;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.8), 0 0 18px rgba(255,180,60,0.3);
+  overflow: hidden;
+  position: relative;
+}
+.loading-bar-fill {
+  position: absolute;
+  inset: 0;
+  width: 0%;
+  background: linear-gradient(90deg, #ffe066 0%, #ffae00 50%, #f5b73d 100%);
+  box-shadow: 0 0 16px rgba(255,200,80,0.9);
+  transition: width 0.2s linear;
+  border-radius: 8px;
+}
+.loading-bar-fill::after {
+  /* Subtle glossy highlight on the fill */
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.4) 0%, transparent 50%);
+}
+.loading-text {
+  font-family: inherit;
+  font-size: 16px;
+  letter-spacing: 0.42em;
+  color: #d6a14a;
+  text-transform: uppercase;
+  font-weight: 700;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+}
+.loading-dots::after {
+  content: "";
+  animation: loadingDots 1.2s infinite steps(4);
+}
+@keyframes loadingDots {
+  0%   { content: ""; }
+  25%  { content: "."; }
+  50%  { content: ".."; }
+  75%  { content: "..."; }
+  100% { content: ""; }
+}
+.loading-pct {
+  font-size: 14px;
+  font-weight: 800;
+  color: #ffe066;
+  letter-spacing: 0.1em;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.9);
+  margin-top: -6px;
+}
+.loading-brand {
+  position: absolute;
+  bottom: 30px;
+  font-size: 12px;
+  letter-spacing: 0.6em;
+  color: rgba(214,161,74,0.5);
+  text-transform: lowercase;
+  font-weight: 600;
+}
+
 html, body {
   margin: 0;
   padding: 0;
@@ -776,19 +875,21 @@ button:active img {
    ============================================================ */
 
 /* FS banner uses the rendered special-asset1.png horizontal ornate frame.
-   Aspect ratio of the asset is ~5:1 landscape — width:height = 660:130. */
+   Larger now (was 660x130 → 820x170) and text padding tuned to clear the
+   central medallion decoration on the asset (so labels/values sit on the
+   empty stone surface, not over the medallion). */
 .fs-banner {
   position: absolute;
-  left: 660px;
-  top: 22px;
-  width: 660px;
-  height: 130px;
+  left: 580px;
+  top: 18px;
+  width: 820px;
+  height: 170px;
   z-index: 14;
   display: none;
   flex-direction: column;
   justify-content: center;
-  gap: 6px;
-  padding: 24px 90px;
+  gap: 10px;
+  padding: 36px 110px;
   background-image: url("assets/special-asset1.png");
   background-size: 100% 100%;
   background-repeat: no-repeat;
@@ -804,25 +905,33 @@ button:active img {
   from { filter: drop-shadow(0 4px 14px rgba(0,0,0,0.6)) drop-shadow(0 0 12px rgba(255,180,60,0.4)); }
   to   { filter: drop-shadow(0 4px 14px rgba(0,0,0,0.6)) drop-shadow(0 0 28px rgba(255,220,100,0.9)); }
 }
+/* Two-column layout: label LEFT, value RIGHT. Pushed away from center so
+   the asset's middle medallion stays clear. */
 .fs-banner-row {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   align-items: baseline;
-  gap: 16px;
+  width: 100%;
 }
 .fs-label {
-  font-size: 16px;
+  font-size: 18px;
+  font-weight: 700;
   letter-spacing: 0.22em;
   color: #d6a14a;
   text-transform: uppercase;
   text-shadow: 0 1px 2px rgba(0,0,0,0.9);
+  text-align: left;
+  padding-left: 20px;
 }
 .fs-value {
-  font-size: 26px;
+  font-size: 30px;
   font-weight: 900;
   color: #ffe8a1;
-  text-shadow: 0 2px 4px rgba(0,0,0,0.9), 0 0 10px rgba(255,200,80,0.4);
+  text-shadow: 0 2px 4px rgba(0,0,0,0.9), 0 0 12px rgba(255,200,80,0.5);
   letter-spacing: -0.01em;
+  text-align: right;
+  padding-right: 20px;
+  line-height: 1;
 }
 
 /* ============================================================

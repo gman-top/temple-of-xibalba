@@ -7,6 +7,18 @@
 <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <!-- Loading intro overlay (BGaming-style: logo + animated progress bar).
+       Auto-fades out after the LOADING_DURATION elapses. -->
+  <div id="loadingIntro" class="loading-intro">
+    <img class="loading-logo" src="assets/logo.png" alt="Temple of Xibalba" />
+    <div class="loading-bar">
+      <div class="loading-bar-fill" id="loadingBarFill"></div>
+    </div>
+    <div class="loading-text">LOADING<span class="loading-dots"></span></div>
+    <div class="loading-pct" id="loadingPct">0%</div>
+    <div class="loading-brand">aigo.bet</div>
+  </div>
+
   <div id="stage-wrap">
     <div id="stage">
       <img class="bg" src="assets/bg.png" alt="" />
