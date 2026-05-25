@@ -199,11 +199,6 @@ html, body {
   display: flex;
   gap: 0;
   z-index: 7;
-  /* Soft arc cutout at the bottom-center where the round spin button sits
-     below — keeps falling cells from clipping flat against the round
-     button's halo. Mask fades out the bottom-center in a curve. */
-  -webkit-mask: radial-gradient(ellipse 28% 14% at 50% 102%, transparent 60%, black 75%);
-          mask: radial-gradient(ellipse 28% 14% at 50% 102%, transparent 60%, black 75%);
 }
 
 .reel-col {
