@@ -360,8 +360,8 @@ html, body {
   z-index: 7;
   opacity: 0;
   animation: fsFramePulse 2.2s ease-in-out infinite alternate;
-  -webkit-mask: linear-gradient(180deg, black 0%, black 82%, transparent 92%);
-          mask: linear-gradient(180deg, black 0%, black 82%, transparent 92%);
+  -webkit-mask: linear-gradient(180deg, black 0%, black 78%, transparent 88%);
+          mask: linear-gradient(180deg, black 0%, black 78%, transparent 88%);
 }
 #stage.fs-active .slot-frame-fs { opacity: 1; }
 /* Keep the base frame visible underneath the FS frame during FS so its
