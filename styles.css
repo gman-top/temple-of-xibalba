@@ -671,18 +671,20 @@ button:active img {
     0 0 18px rgba(140,170,255,0.85);
 }
 
-/* Empty cell with just a multiplier — NO separate frame asset (that
-   looked custom and didn't blend with the gem-style squares around it).
-   Cell stays empty-ish, the ×N 3D-gold text reads as the marker. The
-   .has-mult / .has-mult-high cell-bg tints provide enough visual
-   grounding to read "this cell carries a multiplier". */
+/* Empty cell with just a multiplier renders the symbol02 square frame
+   (Aztec gold cartouche) with the ×N 3D-gold text inside. The square
+   matches the other gem-shape squares around it, so the badge sits in
+   the grid without looking like a custom intrusion. */
 .cell.mult-only .symbol { display: none; }
 .cell.mult-only .multiplier {
-  inset: 0;
-  background-image: none;
+  inset: 4%;
+  background-image: url("assets/symbol02.png");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
   border: 0;
   border-radius: 0;
-  font-size: 48px;
+  font-size: 38px;
   font-weight: 900;
   letter-spacing: -0.04em;
   color: #fff5b8;
@@ -701,6 +703,7 @@ button:active img {
   filter: drop-shadow(0 0 14px rgba(255,200,80,0.85));
 }
 .cell.mult-mid.mult-only .multiplier {
+  /* Mid tier: keep the gold frame, swap the text colour to ember-orange */
   color: #ffe6b0;
   text-shadow:
     1px 1px 0 #ff8030,
@@ -714,6 +717,7 @@ button:active img {
   filter: drop-shadow(0 0 16px rgba(255,140,40,0.9));
 }
 .cell.mult-high.mult-only .multiplier {
+  /* High tier: gold frame stays, magical cyan-violet text + pulsing aura */
   color: #f0faff;
   text-shadow:
     1px 1px 0 #8090ff,
@@ -1449,7 +1453,7 @@ button:active img {
   position: relative;
   width: 900px;
   height: 600px;
-  background: url("assets/fs-trigger-screen.png") center/contain no-repeat;
+  background: url("assets/fs-banner-bg-new.png") center/contain no-repeat;
   text-align: center;
   animation: modalIn 0.5s cubic-bezier(.3,1.4,.4,1);
   cursor: pointer;
