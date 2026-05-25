@@ -37,6 +37,8 @@
     click:        new Audio("assets/sounds/click.ogg"),
     spin:         new Audio("assets/sounds/spin.ogg"),
     reelStop:     new Audio("assets/sounds/reel-stop.ogg"),
+    spinLand:     new Audio("assets/sounds/spin-land.ogg"),   // big "drank" on grid settle
+    reelLand:     new Audio("assets/sounds/reel-land.ogg"),   // weighty drop on cascade
     clusterPop:   new Audio("assets/sounds/cluster-pop.ogg"),
     scatter:      new Audio("assets/sounds/scatter.ogg"),
     wildDig:      new Audio("assets/sounds/wild-dig.ogg"),
@@ -54,6 +56,8 @@
   SFX.click.volume = 0.35;
   SFX.coinTick.volume = 0.25;
   SFX.winMega.volume = 0.7;
+  SFX.spinLand.volume = 0.65;   // big drop hit, should feel weighty
+  SFX.reelLand.volume = 0.5;
 
   // BGM: keep TWO audio nodes per track so we can pre-cue the next loop
   // start before the first one ends — eliminates the ~200ms silent gap
@@ -64,6 +68,8 @@
     const a = new Audio(src), b = new Audio(src);
     a.preload = "auto"; b.preload = "auto";
     a.volume = volume;  b.volume = volume;
+    a.load(); b.load();
+    let activeRef = a;
     function arm(node, other) {
       node.addEventListener("timeupdate", () => {
         if (!node.duration || node.paused) return;
@@ -72,26 +78,40 @@
           other.currentTime = 0;
           other.volume = 0;
           other.play().catch(() => {});
+          activeRef = other;          // <-- track the new active node
           const startedAt = performance.now();
           const fadeMs = 240;
+          const fading = node; const incoming = other;
           (function fade() {
             const t = Math.min(1, (performance.now() - startedAt) / fadeMs);
-            node.volume  = volume * (1 - t);
-            other.volume = volume * t;
+            fading.volume   = volume * (1 - t);
+            incoming.volume = volume * t;
             if (t < 1) requestAnimationFrame(fade);
-            else { node.pause(); node.currentTime = 0; node.volume = volume; }
+            else { fading.pause(); fading.currentTime = 0; fading.volume = volume; }
           })();
         }
       });
     }
     arm(a, b); arm(b, a);
-    let activeRef = a;
+    // Try to play, and if the browser blocks/rejects (audio not yet
+    // decoded), retry once the canplay event fires. Fixes the "music
+    // sometimes doesn't start" report.
+    function tryPlay() {
+      activeRef.currentTime = 0;
+      activeRef.volume = volume;
+      const p = activeRef.play();
+      if (p && p.catch) {
+        p.catch(() => {
+          const onCanPlay = () => {
+            activeRef.removeEventListener("canplay", onCanPlay);
+            activeRef.play().catch(() => {});
+          };
+          activeRef.addEventListener("canplay", onCanPlay);
+        });
+      }
+    }
     return {
-      play() {
-        activeRef.currentTime = 0;
-        activeRef.volume = volume;
-        activeRef.play().catch(() => {});
-      },
+      play()  { tryPlay(); },
       pause() { a.pause(); b.pause(); },
     };
   }
@@ -111,6 +131,7 @@
     winMega:    [260, 520, 780],
     fsTrigger:  [280, 560],
     fsEnd:      [240],
+    spinLand:   [180, 360],   // premium "drank" — heavy hit + cavern tail
   };
   // Pool of pre-loaded clones per SFX so rapid triggers (cascade chains)
   // overlap without each one having to decode-from-scratch on cloneNode.
@@ -1112,6 +1133,9 @@
 
     playSfx("spin");
     await animateSpinIn(randomGrid());
+    // Premium "drank" — heavy impact when the reels finally settle.
+    // Echoes feed the cavern feel (handled by ECHO_DELAYS.spinLand).
+    playSfx("spinLand");
 
     // Cascade loop
     let cascades = 0;
