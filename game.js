@@ -1705,11 +1705,15 @@
   //   1) Aigo brand splash (~1.8s) — fades out
   //   2) Loading screen: critical assets preload; bar fills; PLAY button shows
   //   3) User clicks PLAY → game appears
-  (function runAigoSplash() {
-    const splash = document.getElementById("aigoSplash");
-    if (!splash) return;
-    // Hold the splash on screen, then fade
-    setTimeout(() => splash.classList.add("hidden"), 1800);
+  // Entry flow (Banana-Hustlers style):
+  //   1) Aigo splash holds the screen while critical PNGs preload. Loading
+  //      bar lives inside the LEFT (aigo) panel of the split-screen.
+  //   2) When preload finishes, aigoSplash fades out and the PLAY screen
+  //      (video bg + PLAY button) fades in.
+  //   3) Click/Space PLAY → enter slot.
+  (function runEntryFlow() {
+    // No-op timer — kept for backwards compat so old hidden classes don't
+    // strand the splash. Actual hide is driven by preload completion.
   })();
 
   (function runLoadingIntro() {
@@ -1748,7 +1752,9 @@
       "special-asset1.png", "right-special-asset-2.png",
     ];
 
-    const MIN_MS = 600;
+    // Splash + bar visible at least 2s even on cache-hit so the brand
+    // moment lands. On first load the real preload typically takes longer.
+    const MIN_MS = 2000;
     const startedAt = performance.now();
     let loaded = 0;
     const total = CRITICAL.length;
@@ -1777,9 +1783,10 @@
       const elapsed = performance.now() - startedAt;
       const wait = Math.max(0, MIN_MS - elapsed);
       setTimeout(() => {
-        // Show PLAY button (user-initiated entry); also kick off deferred
-        // asset preload in the background so it's cached by the time the
-        // user actually opens a modal / hits free spins.
+        // Step 1 done: hide the aigo splash; step 2: reveal the PLAY
+        // screen (video bg) with the PLAY button visible immediately.
+        const splash = document.getElementById("aigoSplash");
+        if (splash) splash.classList.add("hidden");
         overlay.classList.add("ready");
         DEFERRED.forEach(loadOne);
       }, wait);
@@ -1805,7 +1812,10 @@
       // Space / Enter while the loading screen is up also triggers entry —
       // keyboard users (and impatient testers) don't have to find the button.
       const onKey = (e) => {
-        if (!overlay.classList.contains("ready") || overlay.classList.contains("hidden")) return;
+        // PLAY screen is available once the aigo splash has hidden
+        const aigoStillUp = document.getElementById("aigoSplash") &&
+                            !document.getElementById("aigoSplash").classList.contains("hidden");
+        if (aigoStillUp || overlay.classList.contains("hidden")) return;
         if (e.code === "Space" || e.code === "Enter") {
           e.preventDefault();
           enter();

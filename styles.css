@@ -33,7 +33,39 @@
   animation: aigoSlideIn 0.7s cubic-bezier(.3,1.4,.4,1) both;
 }
 .aigo-half-left  { animation-name: aigoSlideLeft;  }
-.aigo-half-right { animation-name: aigoSlideRight; }
+.aigo-half-right {
+  animation-name: aigoSlideRight;
+  /* Temple of Xibalba bg painted on the right side — fades from full
+     coverage at the edge into the divider in the middle. */
+  background:
+    linear-gradient(90deg, transparent 0%, rgba(20,10,30,0.4) 70%, rgba(0,0,0,0.85) 100%),
+    url("assets/bg.png") right center / cover no-repeat;
+}
+.aigo-game-logo {
+  filter: drop-shadow(0 8px 30px rgba(255,180,60,0.45)) drop-shadow(0 0 40px rgba(0,0,0,0.8));
+}
+.aigo-half-left {
+  animation-name: aigoSlideLeft;
+  position: relative;
+}
+.aigo-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-top: 30px;
+}
+.aigo-brand {
+  position: absolute;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  letter-spacing: 0.6em;
+  color: rgba(214,161,74,0.55);
+  text-transform: lowercase;
+  font-weight: 600;
+}
 @keyframes aigoSlideLeft {
   from { transform: translateX(-60px); opacity: 0; }
   to   { transform: translateX(0);     opacity: 1; }
@@ -100,24 +132,30 @@
 .loading-intro {
   position: fixed;
   inset: 0;
-  z-index: 9999;
+  z-index: 9998;     /* JUST under aigoSplash (10000) so splash covers it */
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  /* Self-contained CSS gradient — renders the instant the page parses, no
-     waiting on a megabyte PNG that would leave the loading screen looking
-     broken/blank during the very thing it's meant to mask. Dark night-sky
-     blue at the corners, warm amber bloom behind the logo. */
-  background:
-    radial-gradient(ellipse 60% 50% at 50% 40%, rgba(120, 70, 30, 0.55) 0%, rgba(50, 20, 10, 0.25) 50%, transparent 75%),
-    radial-gradient(ellipse at center, #1a1228 0%, #0a0815 60%, #02010a 100%);
+  background: #000;  /* black behind the video while it buffers */
   gap: 26px;
   transition: opacity 0.6s ease, visibility 0.6s ease;
+  /* The PLAY screen is only relevant AFTER aigoSplash hides. We start
+     fully visible underneath the splash; once aigoSplash adds .hidden,
+     this is what the user sees. */
 }
 .loading-intro.hidden {
   opacity: 0;
   visibility: hidden;
+  pointer-events: none;
+}
+.loading-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
   pointer-events: none;
 }
 .loading-logo {
@@ -125,6 +163,8 @@
   height: auto;
   filter: drop-shadow(0 8px 30px rgba(255,180,60,0.5)) drop-shadow(0 0 60px rgba(255,200,80,0.3));
   animation: loadLogoIn 0.8s cubic-bezier(.3,1.4,.4,1) both;
+  position: relative;
+  z-index: 1;
 }
 @keyframes loadLogoIn {
   from { transform: scale(0.6); opacity: 0; }
@@ -199,7 +239,9 @@
    Aztec gold panel with PLAY arrow + lettering baked in). Background-only
    button, no CSS chrome — the asset is the chrome. */
 .loading-play {
-  display: none;
+  display: inline-block;   /* always visible on the PLAY screen */
+  position: relative;
+  z-index: 1;
   width: 294px;
   height: 105px;
   margin-top: 8px;
@@ -212,10 +254,8 @@
   filter: drop-shadow(0 4px 14px rgba(0,0,0,0.6));
   animation: playPulse 1.4s ease-in-out infinite alternate;
 }
-.loading-intro.ready .loading-play { display: inline-block; }
-.loading-intro.ready .loading-bar,
-.loading-intro.ready .loading-text,
-.loading-intro.ready .loading-pct { display: none; }
+/* legacy .ready toggle no longer used — loading bar lives in the aigo
+   splash now, PLAY screen always shows the button. */
 .loading-play:hover  { transform: translateY(-2px); filter: drop-shadow(0 0 22px rgba(255,200,80,0.9)); }
 .loading-play:active { transform: translateY(1px); }
 @keyframes playPulse {
@@ -313,25 +353,29 @@ html, body {
   transition: opacity 0.5s ease;
 }
 
-/* Top-right floating buttons (menu + sound toggle). Round Aztec stone PNGs. */
+/* Menu + sound toggle. Tucked into the top-LEFT of the stage above the
+   totem so they're guaranteed visible on every viewport size — the
+   top-right corner used to hide them behind the character and at
+   smaller viewport heights they'd cross the cropped edge. */
 .btn-menu,
 .btn-sound {
   position: absolute;
-  width: 60px;
-  height: 60px;
+  width: 72px;
+  height: 72px;
   background: transparent;
   border: 0;
   padding: 0;
   cursor: pointer;
-  z-index: 14;
+  z-index: 50;
   transition: transform 0.12s ease, filter 0.12s ease;
-  filter: drop-shadow(0 2px 5px rgba(0,0,0,0.6));
+  filter: drop-shadow(0 3px 6px rgba(0,0,0,0.7));
 }
-/* Pinned to the top-right of the 1920×1080 stage, slightly inside the
-   right edge so portrait/letterboxed viewports don't push them out of
-   view. Sound first (rightmost), Menu next to it. */
-.btn-sound { top: 22px; left: 1830px; }
-.btn-menu  { top: 22px; left: 1740px; }
+/* Pinned at explicit top-left coordinates in the 1920×1080 design — above
+   the LEFT totem (where there's always free space) so they're visible on
+   any viewport size/orientation without competing with the character,
+   the totem buttons, or the bottom HUD. */
+.btn-sound { top: 18px; left: 410px; }
+.btn-menu  { top: 18px; left: 318px; }
 .btn-menu img,
 .btn-sound img {
   width: 100%;
@@ -361,17 +405,20 @@ html, body {
   z-index: 7;
   opacity: 0;
   animation: fsFramePulse 2.2s ease-in-out infinite alternate;
-  /* HARD cut at 80% — below this height the FS frame is fully clipped,
-     so the base frame's button-row decoration shows through cleanly and
-     the overlay buttons (positioned to match the BASE frame) sit on the
-     correct visual rails. No gradient fade-out, just a clean horizon. */
-  -webkit-mask: linear-gradient(180deg, black 0%, black 80%, transparent 80%);
-          mask: linear-gradient(180deg, black 0%, black 80%, transparent 80%);
+  /* No mask — the hard cut looked ugly. FS frame renders at full extent;
+     base frame is HIDDEN underneath (display swap), so the only button-
+     row visible is FS's own. Overlay spin/auto/ffwd shift down slightly
+     to land on FS's baked slots (via the rule below). */
 }
 #stage.fs-active .slot-frame-fs { opacity: 1; }
-/* Keep the base frame visible underneath the FS frame during FS so its
-   button-row decoration anchors the overlay buttons. */
-#stage.fs-active .slot-frame:not(.slot-frame-fs) { opacity: 1; }
+/* Hide the base frame entirely during FS so the FS frame's bottom isn't
+   competing with a second button-row decoration. */
+#stage.fs-active .slot-frame:not(.slot-frame-fs) { opacity: 0; }
+/* Shift the overlay buttons down a touch so they sit on the FS frame's
+   baked button slots (which are ~25px lower than base's). */
+#stage.fs-active .btn-spin     { transform: translateY(25px); }
+#stage.fs-active .btn-autoplay { transform: translateY(25px); }
+#stage.fs-active .btn-fastfwd  { transform: translateY(25px); }
 @keyframes fsFramePulse {
   from { filter: brightness(0.92) saturate(1.05); }
   to   { filter: brightness(1.10) saturate(1.18); }

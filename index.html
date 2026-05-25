@@ -7,30 +7,38 @@
 <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <!-- Aigo brand splash (1st screen, ~1.8s): split-screen with the aigo star
-       + wordmark on the left and the Temple of Xibalba logo on the right.
-       Fades out automatically into the asset-loading screen. -->
+  <!-- Aigo splash + asset preload — Banana-Hustlers style: split-screen
+       layout, aigo brand + LOADING BAR on the left, Temple of Xibalba
+       artwork on the right with the bg fading in. Stays on screen until
+       all critical assets are loaded. -->
   <div id="aigoSplash" class="aigo-splash">
     <div class="aigo-half aigo-half-left">
       <img class="aigo-star" src="assets/aigo-star.png" alt="" />
       <img class="aigo-wordmark" src="assets/aigo-logo.svg" alt="aigo" />
+      <div class="aigo-presents">PRESENTS</div>
+      <div class="aigo-loading">
+        <div class="loading-bar">
+          <div class="loading-bar-fill" id="loadingBarFill"></div>
+        </div>
+        <div class="loading-text">LOADING<span class="loading-dots"></span></div>
+        <div class="loading-pct" id="loadingPct">0%</div>
+      </div>
     </div>
     <div class="aigo-divider"></div>
     <div class="aigo-half aigo-half-right">
       <img class="aigo-game-logo" src="assets/logo.png" alt="Temple of Xibalba" />
     </div>
-    <div class="aigo-presents">PRESENTS</div>
+    <div class="aigo-brand">aigostudios.com</div>
   </div>
 
-  <!-- Asset loading overlay (2nd screen). Bar fills as PNGs preload; when
-       done, the PLAY button appears (no auto-hide) so the user opts in. -->
+  <!-- PLAY screen — appears after preload completes. Full-screen video
+       bg (same as the slot bg) + PLAY button. Click/Space enters slot. -->
   <div id="loadingIntro" class="loading-intro">
+    <video class="loading-video" autoplay muted loop playsinline
+           poster="assets/bg.png" aria-hidden="true">
+      <source src="assets/bg-video-xibalba.mp4" type="video/mp4" />
+    </video>
     <img class="loading-logo" src="assets/logo.png" alt="Temple of Xibalba" />
-    <div class="loading-bar">
-      <div class="loading-bar-fill" id="loadingBarFill"></div>
-    </div>
-    <div class="loading-text">LOADING<span class="loading-dots"></span></div>
-    <div class="loading-pct" id="loadingPct">0%</div>
     <button class="loading-play" id="loadingPlay" type="button" aria-label="Play"></button>
     <div class="loading-brand">aigostudios.com</div>
   </div>
