@@ -36,16 +36,15 @@
   // symbol01 and symbol02 are reserved as multiplier-badge BASES (frame
   // PNG, ×N rendered as 3D text overlay via CSS). symbol03 is dropped
   // because it's visually identical to scatter-medallion. Regular paying
-  // symbols are symbol04..symbol09 + symbol-jaguar (the gold jaguar mask
-  // — highest-paying premium tile, slot in at idx 0).
-  const REG_ASSETS = ["symbol-jaguar","symbol04","symbol05","symbol06","symbol07","symbol08","symbol09"];
+  // symbols are 3 hero tiles (jaguar / feathered serpent / red mask) +
+  // the gem set symbol04..symbol09. Heroes are RAREST (lowest weights),
+  // gems get progressively more common.
+  const REG_ASSETS = ["symbol-jaguar","symbol-feather","symbol-mask-red","symbol04","symbol05","symbol06","symbol07","symbol08","symbol09"];
 
-  // Weights skewed toward common low-tier symbols so clusters form often,
-  // but not so extreme that cascades chain forever.
-  // Per-symbol relative weights. Length MUST match REG_ASSETS or
-  // pickRegSymbol returns an index that maps to undefined and the cell
-  // silently fails to render. (Hard-learned bug.)
-  const REG_WEIGHTS = [3, 4, 6, 9, 13, 17, 22];
+  // Weights skewed toward common low-tier symbols so clusters form often.
+  // Length MUST match REG_ASSETS or pickRegSymbol returns an index that
+  // maps to undefined and the cell silently fails to render.
+  const REG_WEIGHTS = [3, 4, 5, 6, 9, 12, 15, 18, 22];
 
   // base payouts: PAY_TABLE[symIdx][clusterSize - 5], clamped at len-1
   const PAY_TABLE = [
@@ -1489,9 +1488,9 @@
       "bg.png", "logo.png", "left-asset.png", "bottom.png", "slot-frame.png",
       "fire-left.png", "fire-right.png",
       "buy-bonus-button.png", "wildspin-button-off.png", "wildspin-button-on.png",
-      "spin-button.png", "button-autoplay.png", "button-fastfwd.png",
+      "spin-button.png", "button-autoplay.png", "button-fastfwd.png", "button-play.png",
       "plus.png", "minus.png",
-      "symbol-jaguar.png",
+      "symbol-jaguar.png", "symbol-feather.png", "symbol-mask-red.png",
       "symbol04.png", "symbol05.png",
       "symbol06.png", "symbol07.png", "symbol08.png", "symbol09.png",
       "aigo-star.png", "aigo-logo.svg",
