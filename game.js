@@ -55,10 +55,48 @@
   SFX.coinTick.volume = 0.25;
   SFX.winMega.volume = 0.7;
 
-  const bgmBase = new Audio("assets/sounds/bg-loop-base.ogg");
-  const bgmFS   = new Audio("assets/sounds/bg-loop-fs.ogg");
-  bgmBase.loop = true; bgmBase.volume = 0.22;
-  bgmFS.loop = true;   bgmFS.volume = 0.28;
+  // BGM: keep TWO audio nodes per track so we can pre-cue the next loop
+  // start before the first one ends — eliminates the ~200ms silent gap
+  // browsers introduce between iterations of <audio loop>. The second
+  // copy starts ~250ms before the first ends, fading in as the first
+  // fades out, creating a seamless rolling crossfade.
+  function makeBgmPair(src, volume) {
+    const a = new Audio(src), b = new Audio(src);
+    a.preload = "auto"; b.preload = "auto";
+    a.volume = volume;  b.volume = volume;
+    function arm(node, other) {
+      node.addEventListener("timeupdate", () => {
+        if (!node.duration || node.paused) return;
+        const remaining = node.duration - node.currentTime;
+        if (remaining < 0.25 && other.paused) {
+          other.currentTime = 0;
+          other.volume = 0;
+          other.play().catch(() => {});
+          const startedAt = performance.now();
+          const fadeMs = 240;
+          (function fade() {
+            const t = Math.min(1, (performance.now() - startedAt) / fadeMs);
+            node.volume  = volume * (1 - t);
+            other.volume = volume * t;
+            if (t < 1) requestAnimationFrame(fade);
+            else { node.pause(); node.currentTime = 0; node.volume = volume; }
+          })();
+        }
+      });
+    }
+    arm(a, b); arm(b, a);
+    let activeRef = a;
+    return {
+      play() {
+        activeRef.currentTime = 0;
+        activeRef.volume = volume;
+        activeRef.play().catch(() => {});
+      },
+      pause() { a.pause(); b.pause(); },
+    };
+  }
+  const bgmBase = makeBgmPair("assets/sounds/bg-loop-base.ogg", 0.22);
+  const bgmFS   = makeBgmPair("assets/sounds/bg-loop-fs.ogg",   0.28);
 
   let audioMuted = false;
   // Some sounds benefit from a temple-style echo (big wins, FS trigger,
@@ -113,8 +151,8 @@
     if (audioMuted) return;
     const target = which === "fs" ? bgmFS : bgmBase;
     const other  = which === "fs" ? bgmBase : bgmFS;
-    other.pause(); other.currentTime = 0;
-    target.play().catch(() => {});
+    other.pause();
+    target.play();
   }
   function stopBgm() { bgmBase.pause(); bgmFS.pause(); }
   // Decode every SFX once inside the user-gesture context — guarantees no
