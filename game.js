@@ -1722,33 +1722,33 @@
     const fill = document.getElementById("loadingBarFill");
     const pct  = document.getElementById("loadingPct");
 
-    // Per user request: preload EVERYTHING before the PLAY screen unlocks,
-    // not just the first-paint assets. The user reported that lazy-loaded
-    // modal/FS art felt slow when they opened them mid-game. Trading a
-    // longer initial load (and a fuller progress bar) for snappier
-    // gameplay once the slot is up.
+    // CRITICAL = first-paint of the slot scene. Small list, bar fills
+    // fast, splash doesn't hold the user up. Big PNGs (modal frames, FS
+    // art) are pushed to DEFERRED — they keep loading in the background
+    // while the user reads the PLAY screen.
     const CRITICAL = [
-      // Scene / chrome
       "bg.png", "logo.png", "left-asset.png", "bottom.png", "slot-frame.png",
-      "slot-frame-special-round-fixed.png",
       "fire-left.png", "fire-right.png",
-      // Splash brand
       "aigo-star.png", "aigo-logo.svg",
-      // HUD buttons
       "buy-bonus-button.png", "wildspin-button-off.png", "wildspin-button-on.png",
       "spin-button.png", "button-autoplay.png", "button-fastfwd.png",
       "button-play.png", "plus.png", "minus.png",
       "menu.png", "sound-on.png", "sound-off.png",
-      // Paying symbols
       "symbol-jaguar.png", "symbol-feather.png", "symbol-mask-red.png",
       "symbol04.png", "symbol05.png", "symbol06.png",
       "symbol07.png", "symbol08.png", "symbol09.png",
-      // Special grid symbols
+    ];
+
+    // DEFERRED kicks off in parallel WHILE the user is on the PLAY
+    // screen, finishing before they click PLAY (~2-5s of "look at the
+    // pretty bg and find the button"). Includes all the big modal/FS
+    // panels that would otherwise stall the initial load.
+    const DEFERRED = [
+      "slot-frame-special-round-fixed.png",
       "symbol01.png", "symbol02.png",
       "scatter-medallion.png", "wild-pyramid.png",
       "mult-pyramid-low.png", "mult-pyramid-mid.png", "mult-pyramid-high.png",
       "booster-symbol.png", "destroyer-symbol.png",
-      // Modal frames + titles + buttons
       "modal-panel-bg.png", "card-buy-option-bg.png", "confirm-jar.png",
       "title-wild-spin.png", "title-buy-free-spins.png",
       "title-free-spins.png", "title-bonus-game.png",
@@ -1756,14 +1756,13 @@
       "btn-ok.png", "btn-back.png", "btn-close-x.png",
       "arrow-left.png", "arrow-right.png",
       "pyramid-stack.png",
-      // FS scene + banner panels
       "fs-banner-bg-new.png", "fs-portal-bg.png",
       "special-asset1.png", "right-special-asset-2.png",
     ];
 
-    // Splash + bar visible at least 2s even on cache-hit so the brand
-    // moment lands. On first load the real preload typically takes longer.
-    const MIN_MS = 2000;
+    // Splash + bar visible at least 1.2s even on cache-hit so the brand
+    // moment lands. Quick on actual cold loads too with the trimmed list.
+    const MIN_MS = 1200;
     const startedAt = performance.now();
     let loaded = 0;
     const total = CRITICAL.length;
@@ -1792,10 +1791,13 @@
       const elapsed = performance.now() - startedAt;
       const wait = Math.max(0, MIN_MS - elapsed);
       setTimeout(() => {
-        // All assets loaded. Hide aigo splash → reveal PLAY screen.
+        // Critical done: hide aigo splash, reveal PLAY screen. Start
+        // background prefetch of the rest so modal/FS art is cached by
+        // the time the user actually clicks PLAY.
         const splash = document.getElementById("aigoSplash");
         if (splash) splash.classList.add("hidden");
         overlay.classList.add("ready");
+        DEFERRED.forEach(loadOne);
       }, wait);
     });
 

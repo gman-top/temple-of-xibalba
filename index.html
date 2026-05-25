@@ -145,14 +145,17 @@
       </div>
 
       <div class="fs-banner" id="fsBanner" aria-hidden="true">
+        <!-- Single-line layout: FS WIN total already shows on the right-
+             side BONUS ACTIVE panel, so the top banner only carries the
+             spin counter. Less vertical real estate, cleaner read. -->
         <div class="fs-banner-row">
           <span class="fs-label">FREE SPINS</span>
           <span class="fs-value"><span id="fsLeft">0</span> / <span id="fsTotal">0</span></span>
         </div>
-        <div class="fs-banner-row">
-          <span class="fs-label">FS WIN</span>
-          <span class="fs-value" id="fsWin">0.00 ETH</span>
-        </div>
+        <!-- Kept the live FS-win span hidden so the JS that updates
+             refreshFSBanner() doesn't crash trying to write to a missing
+             node. The BONUS ACTIVE panel on the right reads the same value. -->
+        <span id="fsWin" hidden>0.00 ETH</span>
       </div>
 
       <div class="modal-backdrop" id="buyBonusModal" aria-hidden="true">

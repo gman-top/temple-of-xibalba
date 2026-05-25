@@ -35,11 +35,13 @@
 .aigo-half-left  { animation-name: aigoSlideLeft;  }
 .aigo-half-right {
   animation-name: aigoSlideRight;
-  /* Temple of Xibalba bg painted on the right side — fades from full
-     coverage at the edge into the divider in the middle. */
+  /* Pure CSS gradient on the right side — no 3MB bg.png fetch holding
+     up the splash. The Temple of Xibalba game logo sits centered on top
+     and provides all the branding presence we need. Warm amber glow
+     fades toward the divider in the middle. */
   background:
-    linear-gradient(90deg, transparent 0%, rgba(20,10,30,0.4) 70%, rgba(0,0,0,0.85) 100%),
-    url("assets/bg.png") right center / cover no-repeat;
+    radial-gradient(ellipse 80% 70% at 80% 50%, rgba(180, 100, 40, 0.45) 0%, rgba(80, 30, 10, 0.25) 50%, transparent 80%),
+    linear-gradient(90deg, transparent 0%, rgba(40,20,10,0.6) 70%, rgba(15,8,5,0.95) 100%);
 }
 .aigo-game-logo {
   filter: drop-shadow(0 8px 30px rgba(255,180,60,0.45)) drop-shadow(0 0 40px rgba(0,0,0,0.8));
@@ -1225,13 +1227,12 @@ button:active img {
   left: 620px;
   top: 5px;
   width: 740px;
-  height: 95px;
+  height: 70px;
   z-index: 14;
   display: none;
   flex-direction: column;
   justify-content: center;
-  gap: 10px;
-  padding: 22px 90px;
+  padding: 12px 90px;
   background-image: url("assets/special-asset1.png");
   background-size: 100% 100%;
   background-repeat: no-repeat;
