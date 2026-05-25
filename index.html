@@ -85,10 +85,11 @@
       <img class="image-16" src="assets/image 16.png" alt="" />
 
       <img class="slot-frame" src="assets/slot-frame.png" alt="" />
-      <!-- Free-spins frame overlay: shown via stage.fs-active class. The
-           red-ember/cyan-glow variant signals to the player that the
-           special round is running. -->
-      <img class="slot-frame slot-frame-fs" src="assets/slot-frame-special-round.png" alt="" />
+      <!-- Free-spins frame overlay: shown via stage.fs-active class.
+           Same dimensions (809×991) as the base frame so the baked-in
+           button-row decorations line up 1:1 — no mask, no button
+           shift, clean cross-fade. -->
+      <img class="slot-frame slot-frame-fs" src="assets/slot-frame-special-round-fixed.png" alt="" />
 
       <div class="reels" id="reels" aria-label="Slot reels"></div>
 

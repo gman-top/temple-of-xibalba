@@ -411,14 +411,10 @@ html, body {
      to land on FS's baked slots (via the rule below). */
 }
 #stage.fs-active .slot-frame-fs { opacity: 1; }
-/* Hide the base frame entirely during FS so the FS frame's bottom isn't
-   competing with a second button-row decoration. */
+/* Base + FS frames are the SAME size now (slot-frame-special-round-fixed
+   matches slot-frame.png pixel-for-pixel) — clean cross-fade, no shift
+   needed on the overlay buttons. */
 #stage.fs-active .slot-frame:not(.slot-frame-fs) { opacity: 0; }
-/* Shift the overlay buttons down a touch so they sit on the FS frame's
-   baked button slots (which are ~25px lower than base's). */
-#stage.fs-active .btn-spin     { transform: translateY(25px); }
-#stage.fs-active .btn-autoplay { transform: translateY(25px); }
-#stage.fs-active .btn-fastfwd  { transform: translateY(25px); }
 @keyframes fsFramePulse {
   from { filter: brightness(0.92) saturate(1.05); }
   to   { filter: brightness(1.10) saturate(1.18); }
