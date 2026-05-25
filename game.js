@@ -61,15 +61,37 @@
   bgmFS.loop = true;   bgmFS.volume = 0.28;
 
   let audioMuted = false;
+  // Some sounds benefit from a temple-style echo (big wins, FS trigger,
+  // cluster pops). Cheap implementation: play a second quieter copy with
+  // a short delay — no Web Audio graph needed, works reliably on first
+  // load. Keys here use the same names as SFX above.
+  const ECHO_DELAYS = {
+    clusterPop: [180],
+    scatter:    [220, 440],
+    wildDig:    [180, 360],
+    winBig:     [240, 480],
+    winMega:    [260, 520, 780],
+    fsTrigger:  [280, 560],
+    fsEnd:      [240],
+  };
   function playSfx(key) {
     if (audioMuted) return;
     const s = SFX[key];
     if (!s) return;
-    // Clone the node so rapid-fire triggers (cluster cascades, multi-clicks)
-    // overlap instead of cutting each other off.
-    const c = s.cloneNode(true);
-    c.volume = s.volume;
-    c.play().catch(() => {});
+    // Clone the node so rapid-fire triggers overlap instead of cutting
+    // each other off.
+    const play = (volMul, delay) => {
+      const c = s.cloneNode(true);
+      c.volume = s.volume * volMul;
+      if (delay > 0) setTimeout(() => c.play().catch(() => {}), delay);
+      else c.play().catch(() => {});
+    };
+    play(1.0, 0);
+    const echoes = ECHO_DELAYS[key];
+    if (echoes) {
+      // Each echo is fainter than the last → exponential decay
+      echoes.forEach((delay, i) => play(0.55 * Math.pow(0.6, i), delay));
+    }
   }
   function startBgm(which) {
     if (audioMuted) return;
@@ -79,9 +101,26 @@
     target.play().catch(() => {});
   }
   function stopBgm() { bgmBase.pause(); bgmFS.pause(); }
+  // Decode every SFX once inside the user-gesture context — guarantees no
+  // "first play swallowed because the buffer wasn't ready" hiccup later.
+  function prewarm() {
+    for (const k in SFX) {
+      const s = SFX[k];
+      try {
+        s.muted = true;
+        const p = s.play();
+        if (p && p.then) {
+          p.then(() => { s.pause(); s.currentTime = 0; s.muted = false; })
+           .catch(() => { s.muted = false; });
+        } else {
+          s.pause(); s.currentTime = 0; s.muted = false;
+        }
+      } catch (e) { s.muted = false; }
+    }
+  }
   // Expose globally for the loading-intro PLAY button to call (it lives
   // outside this IIFE-managed code path).
-  window.__xibalbaAudio = { playSfx, startBgm, stopBgm,
+  window.__xibalbaAudio = { playSfx, startBgm, stopBgm, prewarm,
     setMuted(m) { audioMuted = m; if (m) stopBgm(); else startBgm("base"); } };
 
 
@@ -1441,6 +1480,23 @@
     btnFastFwd.classList.toggle("active", state.fastForward);
   });
 
+  // Sound toggle (sound-on.png / sound-off.png swap via aria-pressed)
+  const btnSound = document.getElementById("btnSound");
+  if (btnSound) {
+    btnSound.addEventListener("click", () => {
+      const muted = btnSound.getAttribute("aria-pressed") === "true";
+      btnSound.setAttribute("aria-pressed", muted ? "false" : "true");
+      if (window.__xibalbaAudio) window.__xibalbaAudio.setMuted(muted);
+    });
+  }
+
+  // Menu button: placeholder for now — just plays the click SFX and could
+  // open a settings/credits modal in the future.
+  const btnMenu = document.getElementById("btnMenu");
+  if (btnMenu) {
+    btnMenu.addEventListener("click", () => { playSfx("click"); });
+  }
+
   btnBuyBonus.addEventListener("click", () => {
     playSfx("click");
     void 0; // tag below as the original handler
@@ -1662,6 +1718,12 @@
         overlay.classList.add("hidden");
         // First user gesture — unlock + kick off the background music.
         if (window.__xibalbaAudio) {
+          // Pre-warm every SFX so the first cluster-pop / win / scatter
+          // is audible (some browsers refuse to decode until play() is
+          // invoked from a user gesture context). Each is muted+played+
+          // immediately paused/reset → decode pipeline runs, no audible
+          // pop, ready for instant playback when the real event fires.
+          window.__xibalbaAudio.prewarm();
           window.__xibalbaAudio.playSfx("click");
           window.__xibalbaAudio.startBgm("base");
         }
