@@ -40,7 +40,10 @@
 
   // Weights skewed toward common low-tier symbols so clusters form often,
   // but not so extreme that cascades chain forever.
-  const REG_WEIGHTS = [2, 3, 4, 6, 9, 13, 17, 22];
+  // Per-symbol relative weights. Length MUST match REG_ASSETS or
+  // pickRegSymbol returns an index that maps to undefined and the cell
+  // silently fails to render. (Hard-learned bug.)
+  const REG_WEIGHTS = [3, 4, 6, 9, 13, 17, 22];
 
   // base payouts: PAY_TABLE[symIdx][clusterSize - 5], clamped at len-1
   const PAY_TABLE = [
