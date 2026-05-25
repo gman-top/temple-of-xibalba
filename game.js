@@ -33,17 +33,19 @@
   const ROWS = 7;
 
   // 8 regular paying symbols (idx 0..7, 0 = highest pay)
-  // symbol01 and symbol02 are reserved as multiplier-badge BASES (the asset
-  // is the frame; the ×N number is rendered as 3D text overlay via CSS).
-  // Regular paying symbols start at symbol03.
-  const REG_ASSETS = ["symbol03","symbol04","symbol05","symbol06","symbol07","symbol08","symbol09"];
+  // symbol01 and symbol02 are reserved as multiplier-badge BASES (frame
+  // PNG, ×N rendered as 3D text overlay via CSS). symbol03 is dropped
+  // because it's visually identical to scatter-medallion (round gold
+  // Aztec face) and would confuse the player. Regular paying symbols
+  // start at symbol04.
+  const REG_ASSETS = ["symbol04","symbol05","symbol06","symbol07","symbol08","symbol09"];
 
   // Weights skewed toward common low-tier symbols so clusters form often,
   // but not so extreme that cascades chain forever.
   // Per-symbol relative weights. Length MUST match REG_ASSETS or
   // pickRegSymbol returns an index that maps to undefined and the cell
   // silently fails to render. (Hard-learned bug.)
-  const REG_WEIGHTS = [3, 4, 6, 9, 13, 17, 22];
+  const REG_WEIGHTS = [4, 6, 9, 13, 17, 22];
 
   // base payouts: PAY_TABLE[symIdx][clusterSize - 5], clamped at len-1
   const PAY_TABLE = [
@@ -1484,7 +1486,7 @@
       "buy-bonus-button.png", "wildspin-button-off.png", "wildspin-button-on.png",
       "spin-button.png", "button-autoplay.png", "button-fastfwd.png",
       "plus.png", "minus.png",
-      "symbol03.png", "symbol04.png", "symbol05.png",
+      "symbol04.png", "symbol05.png",
       "symbol06.png", "symbol07.png", "symbol08.png", "symbol09.png",
     ];
 
