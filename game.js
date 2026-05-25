@@ -677,25 +677,33 @@
       fsTriggerCount.textContent = count;
       fsTriggerModal.classList.add("visible");
       fsTriggerModal.setAttribute("aria-hidden", "false");
+      // Grace period: ignore clicks/keys for 1s so the overlay reveal
+      // animation finishes and the user doesn't accidentally dismiss it
+      // with a stray click from the previous spin.
+      const armedAt = performance.now();
+      const GRACE_MS = 1000;
       const advance = () => {
+        if (performance.now() - armedAt < GRACE_MS) return;
         fsTriggerModal.classList.remove("visible");
         fsTriggerModal.setAttribute("aria-hidden", "true");
         fsTriggerModal.removeEventListener("click", advance);
         document.removeEventListener("keydown", onKey);
         resolve();
       };
+      // Any key (not just Space/Enter/Esc) advances — user asked for
+      // "press any key". Modifier-only presses are ignored so Cmd-tabbing
+      // doesn't skip the moment.
       const onKey = (e) => {
-        if (e.code === "Space" || e.code === "Enter" || e.code === "Escape") {
-          e.preventDefault();
-          advance();
-        }
+        if (e.key === "Shift" || e.key === "Control" || e.key === "Alt" ||
+            e.key === "Meta"  || e.key === "CapsLock") return;
+        e.preventDefault();
+        advance();
       };
       fsTriggerModal.addEventListener("click", advance);
       document.addEventListener("keydown", onKey);
-      // Auto-advance after ~6s in case user doesn't click (esp. autoplay)
-      setTimeout(() => {
-        if (fsTriggerModal.classList.contains("visible")) advance();
-      }, state.fastForward ? 1200 : 6000);
+      // NO auto-advance — the user explicitly asked for the modal to wait
+      // for a keypress/click. Autoplay sessions stay paused here too;
+      // a real user interaction is required to enter the bonus round.
     });
   }
   function addRecentWin(symIdx, size, payMult, amount) {
@@ -1133,15 +1141,16 @@
 
     playSfx("spin");
     await animateSpinIn(randomGrid());
-    // Premium "drank" — heavy impact when the reels finally settle.
-    // Echoes feed the cavern feel (handled by ECHO_DELAYS.spinLand).
-    playSfx("spinLand");
 
     // Cascade loop
     let cascades = 0;
     while (true) {
       const clusters = findClusters(state.grid);
       if (!clusters.length) break;
+      // Premium "drank" — heavy impact + cavern echo when a cluster locks
+      // in. Lives here (not on every spin landing) so the player only
+      // hears it as a REWARD signal: "your spin paid off."
+      playSfx("spinLand");
       playSfx("clusterPop");
 
       let stepWin = 0;
