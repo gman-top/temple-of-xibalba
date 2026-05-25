@@ -142,6 +142,11 @@ html, body {
   inset: 0;
   width: 1920px;
   height: 1080px;
+  /* Video stretches to cover the stage exactly like the previous static
+     bg.png did. object-fit keeps the aspect ratio of the source. */
+  object-fit: cover;
+  pointer-events: none;
+  z-index: 0;
 }
 
 .logo {
