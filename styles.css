@@ -318,9 +318,15 @@ html, body {
   pointer-events: none;
   z-index: 0;
 }
-/* Stage-wrap fills the viewport and crops anything outside its bounds
-   so the letterbox bars around the scaled stage stay solid black. */
-#stage-wrap { background: #000; }
+/* Stage-wrap fills the viewport. The slot's bg video lives inside
+   #stage (locked to design coords) — but stage-wrap ALSO paints a
+   muted temple-night gradient behind it so the letterbox bars around
+   the scaled stage don't read as harsh black voids. Looks like the
+   night sky/jungle extends past the actual scene. */
+#stage-wrap {
+  background:
+    radial-gradient(ellipse 90% 70% at center, #1a1228 0%, #0a0815 60%, #050208 100%);
+}
 
 .logo {
   position: absolute;
