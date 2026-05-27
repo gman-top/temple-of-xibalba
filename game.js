@@ -96,17 +96,32 @@
     // Try to play, and if the browser blocks/rejects (audio not yet
     // decoded), retry once the canplay event fires. Fixes the "music
     // sometimes doesn't start" report.
+    let canPlayListener = null;
+    function clearCanPlayListener() {
+      if (canPlayListener) {
+        canPlayListener.node.removeEventListener("canplay", canPlayListener.fn);
+        canPlayListener = null;
+      }
+    }
     function tryPlay() {
+      clearCanPlayListener();
       activeRef.currentTime = 0;
       activeRef.volume = volume;
       const p = activeRef.play();
       if (p && p.catch) {
         p.catch(() => {
-          const onCanPlay = () => {
-            activeRef.removeEventListener("canplay", onCanPlay);
-            activeRef.play().catch(() => {});
+          const node = activeRef;
+          const fn = () => {
+            canPlayListener = null;
+            node.removeEventListener("canplay", fn);
+            // Honor mute that may have flipped on between the failed
+            // play() and the canplay retry — otherwise we'd resurrect
+            // BGM the user just silenced.
+            if (audioMuted) return;
+            node.play().catch(() => {});
           };
-          activeRef.addEventListener("canplay", onCanPlay);
+          canPlayListener = { node, fn };
+          node.addEventListener("canplay", fn);
         });
       }
     }
@@ -372,9 +387,18 @@
   const stage = $("stage");
   function fit() {
     const sw = window.innerWidth, sh = window.innerHeight;
-    stage.style.transform = `scale(${Math.min(sw / 1920, sh / 1080)})`;
+    // Uniform letterbox scale — same factor for X and Y so the layout
+    // never warps. Rounded to 4dp to keep sub-pixel jitter out of the
+    // transform on continuous resize.
+    const s = Math.round(Math.min(sw / 1920, sh / 1080) * 10000) / 10000;
+    stage.style.transform = `scale(${s})`;
   }
-  window.addEventListener("resize", fit);
+  // Debounce resize so a drag-to-resize doesn't fire 60+ layout passes.
+  let fitT = null;
+  window.addEventListener("resize", () => {
+    if (fitT) cancelAnimationFrame(fitT);
+    fitT = requestAnimationFrame(fit);
+  });
   fit();
 
   // ---- grid helpers ----------------------------------------------------------
@@ -674,26 +698,29 @@
   const spinWinPopup = document.getElementById("spinWinPopup");
   const spinWinAmount = document.getElementById("spinWinAmount");
   let spinWinHideT = null;
+  let spinWinRaf = null;
   function showSpinWinPopup(amount) {
     if (!spinWinPopup) return;
     spinWinPopup.classList.add("visible");
     spinWinPopup.setAttribute("aria-hidden", "false");
-    // Count up the amount inside the popup independently from the HUD,
-    // a touch faster so it feels punchy.
+    // Cancel any in-flight count-up so a rapid re-show doesn't race the
+    // previous one (older rAF overwriting the newer value).
+    if (spinWinRaf) cancelAnimationFrame(spinWinRaf);
     const startedAt = performance.now();
     const DUR = 500;
     (function tick(now) {
       const t = Math.min(1, (now - startedAt) / DUR);
       const eased = 1 - Math.pow(1 - t, 2);
       spinWinAmount.textContent = `${fmt(amount * eased)} ETH`;
-      if (t < 1) requestAnimationFrame(tick);
-      else spinWinAmount.textContent = `${fmt(amount)} ETH`;
+      if (t < 1) spinWinRaf = requestAnimationFrame(tick);
+      else { spinWinAmount.textContent = `${fmt(amount)} ETH`; spinWinRaf = null; }
     })(startedAt);
     if (spinWinHideT) clearTimeout(spinWinHideT);
     spinWinHideT = setTimeout(hideSpinWinPopup, 2400);
   }
   function hideSpinWinPopup() {
     if (!spinWinPopup) return;
+    if (spinWinRaf) { cancelAnimationFrame(spinWinRaf); spinWinRaf = null; }
     spinWinPopup.classList.remove("visible");
     spinWinPopup.setAttribute("aria-hidden", "true");
   }
