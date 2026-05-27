@@ -367,10 +367,70 @@ html, body {
   transition: opacity 0.5s ease;
 }
 
-/* Menu + sound toggle. Tucked into the top-LEFT of the stage above the
-   totem so they're guaranteed visible on every viewport size — the
-   top-right corner used to hide them behind the character and at
-   smaller viewport heights they'd cross the cropped edge. */
+/* ============================================================
+   Chrome layer — UI controls that DON'T scale with the slot. Pinned
+   to viewport corners so they stay in the same physical spot on the
+   user's screen regardless of how the centered slot frame scales
+   for different aspect ratios. (Like real BGaming UI chrome.)
+   ============================================================ */
+.chrome-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;      /* children re-enable per-element */
+  z-index: 30;
+}
+.chrome-layer > * { pointer-events: auto; }
+
+/* Menu + sound: pinned to top-LEFT of the viewport. */
+.chrome-layer .btn-menu,
+.chrome-layer .btn-sound {
+  position: fixed;
+  width: 56px;
+  height: 56px;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  transition: transform 0.12s ease, filter 0.12s ease;
+  filter: drop-shadow(0 3px 6px rgba(0,0,0,0.7));
+}
+.chrome-layer .btn-menu  { top: 20px; left: 20px; }
+.chrome-layer .btn-sound { top: 20px; left: 88px; }
+.chrome-layer .btn-menu img,
+.chrome-layer .btn-sound img { width: 100%; height: 100%; display: block; }
+.chrome-layer .btn-menu:hover,
+.chrome-layer .btn-sound:hover { transform: scale(1.1); filter: drop-shadow(0 0 12px rgba(255,200,80,0.85)); }
+.chrome-layer .btn-menu:active,
+.chrome-layer .btn-sound:active { transform: scale(0.95); }
+.chrome-layer .btn-sound .snd-off { display: none; }
+.chrome-layer .btn-sound[aria-pressed="false"] .snd-on  { display: none; }
+.chrome-layer .btn-sound[aria-pressed="false"] .snd-off { display: block; }
+
+/* BONUS ACTIVE panel: pinned to the right edge of the viewport. Visible
+   only during free spins. */
+.chrome-layer .bonus-active-panel {
+  position: fixed;
+  top: 24vh;
+  right: 24px;
+  width: 280px;
+  height: 130px;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 26px 32px;
+  background-image: url("assets/right-special-asset-2.png");
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  border: 0;
+  box-sizing: border-box;
+  filter: drop-shadow(0 4px 16px rgba(0,0,0,0.6));
+  animation: baGlow 2.2s ease-in-out infinite alternate;
+}
+.chrome-layer .bonus-active-panel.visible { display: flex; }
+
+/* Legacy in-stage versions of the chrome — now obsolete but left
+   harmless in case any old code path tries to position them. */
 .btn-menu,
 .btn-sound {
   position: absolute;
@@ -384,26 +444,6 @@ html, body {
   transition: transform 0.12s ease, filter 0.12s ease;
   filter: drop-shadow(0 3px 6px rgba(0,0,0,0.7));
 }
-/* Pinned at explicit top-left coordinates in the 1920×1080 design — above
-   the LEFT totem (where there's always free space) so they're visible on
-   any viewport size/orientation without competing with the character,
-   the totem buttons, or the bottom HUD. */
-.btn-sound { top: 18px; left: 410px; }
-.btn-menu  { top: 18px; left: 318px; }
-.btn-menu img,
-.btn-sound img {
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-.btn-menu:hover,
-.btn-sound:hover { transform: scale(1.08); filter: drop-shadow(0 0 14px rgba(255,200,80,0.75)); }
-.btn-menu:active,
-.btn-sound:active { transform: scale(0.95); }
-/* Sound toggle: only one PNG shown based on aria-pressed (true = sound on). */
-.btn-sound .snd-off { display: none; }
-.btn-sound[aria-pressed="false"] .snd-on  { display: none; }
-.btn-sound[aria-pressed="false"] .snd-off { display: block; }
 /* The FS-active frame is stacked ON TOP of the base frame; both are
    absolutely positioned at the same coords, so swapping is a pure
    opacity cross-fade. Pulsing glow drives the "magical" feel during
