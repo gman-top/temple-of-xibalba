@@ -1002,17 +1002,16 @@ button:active img {
     0 0 18px rgba(140,170,255,0.85);
 }
 
-/* Empty cell with just a multiplier renders the symbol02 square frame
-   (Aztec gold cartouche) with the ×N 3D-gold text inside. The square
-   matches the other gem-shape squares around it, so the badge sits in
-   the grid without looking like a custom intrusion. */
-.cell.mult-only .symbol { display: none; }
+/* Empty cell with just a multiplier: paint a faded gem behind the ×N so the
+   cell visually matches the neighbouring gem squares. The gold ×N text sits
+   on top — same 3D extrusion as the normal multiplier badge, just larger. */
+.cell.mult-only .symbol {
+  opacity: 0.32;
+  filter: grayscale(0.55) brightness(0.7) drop-shadow(0 4px 6px rgba(0,0,0,0.5));
+}
 .cell.mult-only .multiplier {
-  inset: 4%;
-  background-image: url("assets/symbol02.png");
-  background-size: contain;
-  background-repeat: no-repeat;
-  background-position: center;
+  inset: 0;
+  background-image: none;
   border: 0;
   border-radius: 0;
   font-size: 38px;
@@ -1027,7 +1026,7 @@ button:active img {
     5px 5px 0 #6e4612,
     6px 6px 0 #4a300c,
     7px 7px 10px rgba(0,0,0,0.9),
-    0 0 18px rgba(255,200,80,0.5);
+    0 0 18px rgba(255,200,80,0.6);
   box-shadow: none;
 }
 .cell.mult-low.mult-only .multiplier {

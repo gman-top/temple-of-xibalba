@@ -534,8 +534,16 @@
       //   else → high (purple-magical)
       const tier = m <= 10 ? "mult-low" : m <= 50 ? "mult-mid" : "mult-high";
       cell.classList.add(tier);
-      // If the cell has no symbol (empty + multiplier), render as full pyramid
-      if (!v) cell.classList.add("mult-only");
+      // Empty cell + multiplier: paint a dimmed gem behind the ×N so the cell
+      // reads as the same square shape as its neighbours (no jarring cartouche).
+      // Pick deterministically from position so the ghost gem stays stable
+      // across re-paints.
+      if (!v) {
+        cell.classList.add("mult-only");
+        const ghostIdx = (r * 5 + c) % REG_ASSETS.length;
+        sym.style.backgroundImage = `url("assets/${REG_ASSETS[ghostIdx]}.png")`;
+        sym.style.opacity = "1";
+      }
     } else {
       multEl.textContent = "";
       multEl.style.display = "none";
