@@ -54,6 +54,7 @@
   };
   for (const k in SFX) { SFX[k].preload = "auto"; SFX[k].volume = 0.45; }
   SFX.click.volume = 0.35;
+  SFX.spin.volume  = 0.35;   // shuffle-style sweep, mellow so it doesn't drown the BGM
   SFX.coinTick.volume = 0.25;
   SFX.winMega.volume = 0.7;
   SFX.spinLand.volume = 0.65;   // big drop hit, should feel weighty
