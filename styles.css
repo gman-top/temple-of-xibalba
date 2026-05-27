@@ -289,6 +289,12 @@ html, body {
   position: relative;
   width: 1920px;
   height: 1080px;
+  /* Disable flex shrinking — without this, the flex parent (#stage-wrap)
+     was forcing the stage to shrink from 1920 down to viewport width on
+     narrow screens, which broke the scale math and clipped right-side
+     elements like the character. flex-shrink: 0 keeps the stage at its
+     design size; the CSS transform handles the actual fit. */
+  flex-shrink: 0;
   transform-origin: center center;
   background: #000;
   user-select: none;
