@@ -942,13 +942,27 @@ button:active img {
 /* Cells with active cell multipliers get a YELLOW/GOLD tint, matching the
    BGaming Aztec Clusters reference. Lavender is used ONLY during a cluster's
    "in-cluster" pop phase (see .cell.in-cluster below). */
-.cell.has-mult,
-.cell.has-mult-high {
-  /* No cell-level tint at all — the multiplier text already carries its own
-     gold glow via drop-shadow, which is enough visual signal. Avoids the
-     "yellow rectangle" feel the cell-tinted approach left behind. */
-  background: transparent;
+.cell.has-mult {
+  /* Soft circular "hotspot" — closest-side so the gradient stops at the cell
+     midpoint and corners stay fully transparent. Reads as a glowing orb
+     marking the spot where the cluster broke, not as a yellow rectangle. */
+  background: radial-gradient(circle closest-side at 50% 50%,
+    rgba(255,205,90,0.30) 0%,
+    rgba(255,180,60,0.14) 55%,
+    transparent 100%);
   box-shadow: none;
+}
+.cell.has-mult-high {
+  background: radial-gradient(circle closest-side at 50% 50%,
+    rgba(255,215,100,0.46) 0%,
+    rgba(255,170,40,0.20) 55%,
+    transparent 100%);
+  box-shadow: none;
+  animation: hotspotPulse 1.8s ease-in-out infinite alternate;
+}
+@keyframes hotspotPulse {
+  from { filter: brightness(0.95) saturate(1); }
+  to   { filter: brightness(1.12) saturate(1.15); }
 }
 
 /* SMALL multiplier badge — number rendered as 3D extruded gold text
