@@ -43,17 +43,16 @@
     <div class="loading-brand">aigostudios.com</div>
   </div>
 
-  <!-- Looping background video — pinned to the VIEWPORT (not the stage)
-       so it fills the entire screen on every aspect ratio. The stage
-       scales uniformly with letterboxing; without this, ultrawide and
-       narrow viewports would show black bars beside the scaled stage. -->
-  <video class="viewport-bg" autoplay muted loop playsinline preload="auto"
-         poster="assets/bg.png" aria-hidden="true">
-    <source src="assets/bg-video-xibalba.mp4" type="video/mp4" />
-  </video>
-
   <div id="stage-wrap">
     <div id="stage">
+      <!-- Looping background video. Inside #stage so it scales with the
+           same transform as every other game element — guarantees zero
+           relative movement between bg and UI on resize. -->
+      <video class="bg" autoplay muted loop playsinline preload="auto"
+             poster="assets/bg.png" aria-hidden="true">
+        <source src="assets/bg-video-xibalba.mp4" type="video/mp4" />
+      </video>
+
       <img class="logo" src="assets/logo.png" alt="Temple of Xibalba" />
 
       <img class="left-asset" src="assets/left-asset.png" alt="" />
@@ -111,9 +110,16 @@
         <img src="assets/button-autoplay.png" alt="" />
       </button>
 
-      <!-- Top-right UI buttons MOVED to .chrome-layer below the stage so
-           they stay pinned to viewport corners regardless of how the
-           slot scales. -->
+      <!-- Top-left UI buttons inside the stage so they scale with the
+           rest of the slot — locked relative positions on resize. -->
+      <button class="btn-menu" id="btnMenu" type="button" aria-label="Menu">
+        <img src="assets/menu.png" alt="" />
+      </button>
+      <button class="btn-sound" id="btnSound" type="button" aria-label="Toggle sound" aria-pressed="true">
+        <img class="snd-on"  src="assets/sound-on.png"  alt="" />
+        <img class="snd-off" src="assets/sound-off.png" alt="" />
+      </button>
+
       <div class="max-win">MAX WIN IS 10.000X BET</div>
 
       <div class="hud">
@@ -224,9 +230,10 @@
         </div>
       </div>
 
-      <!-- BONUS ACTIVE panel MOVED to .chrome-layer below — pinned to
-           the viewport's right edge so it doesn't drift inward as the
-           slot scales on smaller viewports. -->
+      <div class="bonus-active-panel" id="bonusActivePanel" aria-hidden="true">
+        <div class="ba-label">BONUS ACTIVE</div>
+        <div class="ba-value" id="baValue">0.00 ETH</div>
+      </div>
 
       <div class="modal-backdrop" id="autoplayModal" aria-hidden="true">
         <div class="modal" role="dialog" aria-label="Autoplay">
@@ -248,22 +255,6 @@
     </div>
   </div>
 
-  <!-- Viewport-fixed chrome layer. Lives OUTSIDE #stage so the CSS
-       transform that scales the slot doesn't move these UI controls.
-       They stay glued to the viewport corners on any aspect ratio. -->
-  <div class="chrome-layer">
-    <button class="btn-menu" id="btnMenu" type="button" aria-label="Menu">
-      <img src="assets/menu.png" alt="" />
-    </button>
-    <button class="btn-sound" id="btnSound" type="button" aria-label="Toggle sound" aria-pressed="true">
-      <img class="snd-on"  src="assets/sound-on.png"  alt="" />
-      <img class="snd-off" src="assets/sound-off.png" alt="" />
-    </button>
-    <div class="bonus-active-panel" id="bonusActivePanel" aria-hidden="true">
-      <div class="ba-label">BONUS ACTIVE</div>
-      <div class="ba-value" id="baValue">0.00 ETH</div>
-    </div>
-  </div>
   <script src="game.js"></script>
 </body>
 </html>

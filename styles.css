@@ -305,23 +305,22 @@ html, body {
   pointer-events: none;
 }
 
-/* Viewport-fixed video bg. Sits BEHIND #stage-wrap so the slot scene
-   continues across the whole screen — no black bands on ultrawide or
-   narrow aspect ratios, the temple scenery wraps around the centred
-   slot frame. z-index 0 (under #stage-wrap which has its own z). */
-.viewport-bg {
-  position: fixed;
+/* Background video lives INSIDE #stage so it scales with the same
+   transform as every other game element. Result: zero relative
+   movement between bg and UI on resize — the whole scene moves as
+   one locked unit. */
+.bg {
+  position: absolute;
   inset: 0;
-  width: 100vw;
-  height: 100vh;
+  width: 1920px;
+  height: 1080px;
   object-fit: cover;
   pointer-events: none;
   z-index: 0;
 }
-/* #stage-wrap floats above the bg with a TRANSPARENT background so the
-   video shows through. */
-#stage-wrap { background: transparent; z-index: 1; }
-#stage      { background: transparent; }
+/* Stage-wrap fills the viewport and crops anything outside its bounds
+   so the letterbox bars around the scaled stage stay solid black. */
+#stage-wrap { background: #000; }
 
 .logo {
   position: absolute;
@@ -373,64 +372,9 @@ html, body {
    user's screen regardless of how the centered slot frame scales
    for different aspect ratios. (Like real BGaming UI chrome.)
    ============================================================ */
-.chrome-layer {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;      /* children re-enable per-element */
-  z-index: 30;
-}
-.chrome-layer > * { pointer-events: auto; }
-
-/* Menu + sound: pinned to top-LEFT of the viewport. */
-.chrome-layer .btn-menu,
-.chrome-layer .btn-sound {
-  position: fixed;
-  width: 56px;
-  height: 56px;
-  background: transparent;
-  border: 0;
-  padding: 0;
-  cursor: pointer;
-  transition: transform 0.12s ease, filter 0.12s ease;
-  filter: drop-shadow(0 3px 6px rgba(0,0,0,0.7));
-}
-.chrome-layer .btn-menu  { top: 20px; left: 20px; }
-.chrome-layer .btn-sound { top: 20px; left: 88px; }
-.chrome-layer .btn-menu img,
-.chrome-layer .btn-sound img { width: 100%; height: 100%; display: block; }
-.chrome-layer .btn-menu:hover,
-.chrome-layer .btn-sound:hover { transform: scale(1.1); filter: drop-shadow(0 0 12px rgba(255,200,80,0.85)); }
-.chrome-layer .btn-menu:active,
-.chrome-layer .btn-sound:active { transform: scale(0.95); }
-.chrome-layer .btn-sound .snd-off { display: none; }
-.chrome-layer .btn-sound[aria-pressed="false"] .snd-on  { display: none; }
-.chrome-layer .btn-sound[aria-pressed="false"] .snd-off { display: block; }
-
-/* BONUS ACTIVE panel: pinned to the right edge of the viewport. Visible
-   only during free spins. */
-.chrome-layer .bonus-active-panel {
-  position: fixed;
-  top: 24vh;
-  right: 24px;
-  width: 280px;
-  height: 130px;
-  display: none;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 26px 32px;
-  background-image: url("assets/right-special-asset-2.png");
-  background-size: 100% 100%;
-  background-repeat: no-repeat;
-  border: 0;
-  box-sizing: border-box;
-  filter: drop-shadow(0 4px 16px rgba(0,0,0,0.6));
-  animation: baGlow 2.2s ease-in-out infinite alternate;
-}
-.chrome-layer .bonus-active-panel.visible { display: flex; }
-
-/* Legacy in-stage versions of the chrome — now obsolete but left
-   harmless in case any old code path tries to position them. */
+/* Menu + sound buttons live INSIDE #stage so they scale with everything
+   else — no relative drift when the window resizes. Positioned at the
+   stage's top-left in design coords. */
 .btn-menu,
 .btn-sound {
   position: absolute;
@@ -444,6 +388,21 @@ html, body {
   transition: transform 0.12s ease, filter 0.12s ease;
   filter: drop-shadow(0 3px 6px rgba(0,0,0,0.7));
 }
+.btn-sound { top: 18px; left: 410px; }
+.btn-menu  { top: 18px; left: 318px; }
+.btn-menu img,
+.btn-sound img { width: 100%; height: 100%; display: block; }
+.btn-menu:hover,
+.btn-sound:hover { transform: scale(1.08); filter: drop-shadow(0 0 14px rgba(255,200,80,0.75)); }
+.btn-menu:active,
+.btn-sound:active { transform: scale(0.95); }
+.btn-sound .snd-off { display: none; }
+.btn-sound[aria-pressed="false"] .snd-on  { display: none; }
+.btn-sound[aria-pressed="false"] .snd-off { display: block; }
+
+/* BONUS ACTIVE styles defined further down (original rule at ~line
+   1854). Stays inside #stage so it scales together with the rest. */
+
 /* The FS-active frame is stacked ON TOP of the base frame; both are
    absolutely positioned at the same coords, so swapping is a pure
    opacity cross-fade. Pulsing glow drives the "magical" feel during
