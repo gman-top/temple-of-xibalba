@@ -388,9 +388,15 @@
   function fit() {
     const sw = window.innerWidth, sh = window.innerHeight;
     // Uniform letterbox scale — same factor for X and Y so the layout
-    // never warps. Rounded to 4dp to keep sub-pixel jitter out of the
-    // transform on continuous resize.
-    const s = Math.round(Math.min(sw / 1920, sh / 1080) * 10000) / 10000;
+    // never warps. Capped between 0.5 and 1.0 so the slot:
+    //   - never grows past 1:1 design size (consistent layout on huge
+    //     monitors/zoomed viewports — viewport-bg fills the rest)
+    //   - never shrinks below 50% (small viewports stay readable; below
+    //     this scale the slot would be unusable anyway)
+    // Sub-pixel jitter trimmed by rounding to 4dp.
+    let s = Math.min(sw / 1920, sh / 1080);
+    s = Math.min(1, Math.max(0.5, s));
+    s = Math.round(s * 10000) / 10000;
     stage.style.transform = `scale(${s})`;
   }
   // Debounce resize so a drag-to-resize doesn't fire 60+ layout passes.
