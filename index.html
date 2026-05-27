@@ -43,16 +43,17 @@
     <div class="loading-brand">aigostudios.com</div>
   </div>
 
+  <!-- Looping background video — pinned to the VIEWPORT (not the stage)
+       so it fills the entire screen on every aspect ratio. The stage
+       scales uniformly with letterboxing; without this, ultrawide and
+       narrow viewports would show black bars beside the scaled stage. -->
+  <video class="viewport-bg" autoplay muted loop playsinline preload="auto"
+         poster="assets/bg.png" aria-hidden="true">
+    <source src="assets/bg-video-xibalba.mp4" type="video/mp4" />
+  </video>
+
   <div id="stage-wrap">
     <div id="stage">
-      <!-- Looping background video. The static bg.png is kept as a poster
-           fallback for browsers that block autoplay, and is the same image
-           shown behind the loading-intro overlay. -->
-      <video class="bg" autoplay muted loop playsinline preload="auto"
-             poster="assets/bg.png" aria-hidden="true">
-        <source src="assets/bg-video-xibalba.mp4" type="video/mp4" />
-      </video>
-
       <img class="logo" src="assets/logo.png" alt="Temple of Xibalba" />
 
       <img class="left-asset" src="assets/left-asset.png" alt="" />
