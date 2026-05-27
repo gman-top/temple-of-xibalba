@@ -520,13 +520,17 @@
       cell.classList.add("destroyer");
     }
 
-    // Multiplier badge
+    // Multiplier badge. Wild cells already paint their ×N via the badge
+    // ::before pseudo-element (data-mult), so suppressing the separate
+    // .multiplier overlay there avoids the "××N" double-× render.
     const m = state.cellMult[r][c];
-    if (m && m > 0) {
+    const isWild = v && v.t === TY.WILD;
+    if (m && m > 0 && !isWild) {
       multEl.textContent = `×${m}`;
       multEl.style.display = "flex";
       multEl.classList.toggle("big", m >= 8);
-      // Lavender highlight on cells with an active multiplier
+      // Soft highlight on cells with an active multiplier (no stroke; just
+      // a faint tint so the square reads as part of the bg).
       cell.classList.add(m >= 6 ? "has-mult-high" : "has-mult");
       // Pick the pyramid tier asset by multiplier value:
       //   ≤10  → low  (gold)
