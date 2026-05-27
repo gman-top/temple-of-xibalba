@@ -387,16 +387,11 @@
   const stage = $("stage");
   function fit() {
     const sw = window.innerWidth, sh = window.innerHeight;
-    // Uniform letterbox scale — same factor for X and Y so the layout
-    // never warps. Capped between 0.5 and 1.0 so the slot:
-    //   - never grows past 1:1 design size (consistent layout on huge
-    //     monitors/zoomed viewports — viewport-bg fills the rest)
-    //   - never shrinks below 50% (small viewports stay readable; below
-    //     this scale the slot would be unusable anyway)
-    // Sub-pixel jitter trimmed by rounding to 4dp.
-    let s = Math.min(sw / 1920, sh / 1080);
-    s = Math.min(1, Math.max(0.5, s));
-    s = Math.round(s * 10000) / 10000;
+    // Uniform letterbox scale — same factor for X and Y so the whole
+    // 1920×1080 stage (bg video + slot + chrome + character + totem)
+    // moves as ONE locked unit. Nothing drifts relative to anything
+    // else on resize. 4dp rounding kills sub-pixel jitter.
+    const s = Math.round(Math.min(sw / 1920, sh / 1080) * 10000) / 10000;
     stage.style.transform = `scale(${s})`;
   }
   // Debounce resize so a drag-to-resize doesn't fire 60+ layout passes.
