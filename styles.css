@@ -292,6 +292,12 @@ html, body {
   transform-origin: center center;
   background: #000;
   user-select: none;
+  /* Promote the stage to its own GPU layer so the scale transform is
+     composited cheaply on every viewport and pixel rounding stays
+     consistent — eliminates the sub-pixel shift you sometimes see on
+     resize where edge elements appear to "drift". */
+  will-change: transform;
+  backface-visibility: hidden;
 }
 
 #stage img {
