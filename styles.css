@@ -305,17 +305,23 @@ html, body {
   pointer-events: none;
 }
 
-.bg {
-  position: absolute;
+/* Viewport-fixed video bg. Sits BEHIND #stage-wrap so the slot scene
+   continues across the whole screen — no black bands on ultrawide or
+   narrow aspect ratios, the temple scenery wraps around the centred
+   slot frame. z-index 0 (under #stage-wrap which has its own z). */
+.viewport-bg {
+  position: fixed;
   inset: 0;
-  width: 1920px;
-  height: 1080px;
-  /* Video stretches to cover the stage exactly like the previous static
-     bg.png did. object-fit keeps the aspect ratio of the source. */
+  width: 100vw;
+  height: 100vh;
   object-fit: cover;
   pointer-events: none;
   z-index: 0;
 }
+/* #stage-wrap floats above the bg with a TRANSPARENT background so the
+   video shows through. */
+#stage-wrap { background: transparent; z-index: 1; }
+#stage      { background: transparent; }
 
 .logo {
   position: absolute;
