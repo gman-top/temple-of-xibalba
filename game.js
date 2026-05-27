@@ -1815,6 +1815,10 @@
     // should enter the game, not also-spin the reels behind it.
     const intro = document.getElementById("loadingIntro");
     if (intro && !intro.classList.contains("hidden")) return;
+    // FS trigger modal owns Space/Enter to dismiss itself. Skip the
+    // spin/autoplay shortcuts so a single keypress closes the modal
+    // first instead of also kicking off a spin behind it.
+    if (fsTriggerModal && fsTriggerModal.classList.contains("visible")) return;
     if (e.code === "Space") { e.preventDefault(); btnSpin.click(); }
     if (e.code === "KeyA") btnAutoplay.click();
     if (e.code === "KeyF") btnFastFwd.click();
@@ -1888,9 +1892,14 @@
       "btn-ok.png", "btn-back.png", "btn-close-x.png",
       "arrow-left.png", "arrow-right.png",
       "pyramid-stack.png",
-      "fs-banner-bg-new.png", "fs-portal-bg.png",
+      "fs-portal-bg.png",
       "special-asset1.png", "right-special-asset-2.png",
     ];
+
+    // FS trigger modal art — needs to be ready the first time FS lands,
+    // not still streaming when the modal opens. Kicked off immediately at
+    // module init so the browser cache always has it by trigger time.
+    new Image().src = "assets/fs-banner-bg-new.png";
 
     // Splash + bar visible at least 1.2s even on cache-hit so the brand
     // moment lands. Quick on actual cold loads too with the trimmed list.
