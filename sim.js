@@ -24,20 +24,24 @@ const REG_COUNT = 9; // jaguar, feather, mask-red, symbol04..symbol09
 const REG_WEIGHTS = [3, 4, 5, 6, 9, 12, 15, 18, 22];
 
 // PAY_TABLE[symIdx][clusterSize - 5], clamped at len-1.
-const PAY_TABLE = [
-  [40,  60, 100, 180, 300, 600, 1000, 1800],  // 0 jaguar (rarest, highest)
-  [25,  40,  70, 120, 200, 400,  700, 1200],  // 1 feather
-  [15,  25,  45,  80, 140, 280,  480,  800],  // 2 red mask
-  [ 8,  12,  22,  40,  70, 140,  240,  400],  // 3 symbol04
-  [ 4,   6,  11,  20,  35,  70,  120,  200],  // 4 symbol05
-  [ 2,   3,   5,   8,  14,  28,   50,   85],  // 5 symbol06
-  [ 1, 1.5, 2.5,   4,   7,  14,   25,   45],  // 6 symbol07
-  [0.6,  1, 1.6,   3,   5,  10,   18,   30],  // 7 symbol08
-  [0.4,0.6, 1.0,   2,   3,   6,   10,   18],  // 8 symbol09 (most common)
+// `let` (not const) so the tune mode can swap a scaled copy in/out.
+// Calibrated values mirror game.js — RTP 95.78%, hit 29.4%, FS 1/208.
+let PAY_TABLE = [
+  [2.13, 3.19, 5.32,  9.58, 15.97, 31.93,  53.22,  95.80],  // 0 jaguar
+  [1.33, 2.13, 3.73,  6.39, 10.64, 21.29,  37.25,  63.86],  // 1 feather
+  [0.80, 1.33, 2.40,  4.26,  7.45, 14.90,  25.55,  42.58],  // 2 red mask
+  [0.43, 0.64, 1.17,  2.13,  3.73,  7.45,  12.77,  21.29],  // 3 symbol04
+  [0.21, 0.32, 0.59,  1.06,  1.86,  3.73,   6.39,  10.64],  // 4 symbol05
+  [0.11, 0.16, 0.27,  0.43,  0.74,  1.49,   2.66,   4.52],  // 5 symbol06
+  [0.05, 0.08, 0.13,  0.21,  0.37,  0.74,   1.33,   2.40],  // 6 symbol07
+  [0.03, 0.05, 0.09,  0.16,  0.27,  0.53,   0.96,   1.60],  // 7 symbol08
+  [0.02, 0.03, 0.05,  0.11,  0.16,  0.32,   0.53,   0.96],  // 8 symbol09
 ];
 
-const SCATTER_FILL_PROB    = 0.025;
-const SCATTER_FILL_PROB_FS = 0.004;
+// `let` so the tuner can rebind them on each probe.
+// Calibrated value lands FS triggers at 1/208 spins (target 1/220).
+let SCATTER_FILL_PROB    = 0.0339;
+let SCATTER_FILL_PROB_FS = 0.004;
 const DIG = { wild: 0.06, booster: 0.03, destroyer: 0.025, scatter: 0.02 };
 
 const FS_AWARDS         = { 3: 10, 4: 12, 5: 15, 6: 20 };
@@ -56,13 +60,15 @@ const TY = { REG: 0, SCAT: 1, WILD: 2, BOOST: 3, DEST: 4 };
 let rngState = 0;
 function setSeed(s) { rngState = s >>> 0; }
 function seededRand() {
-  // xorshift32
+  // xorshift32. `& 0xffffffff` returns a SIGNED 32-bit int in JS, which can
+  // be negative — that propagates into Math.floor(rand() * n) and produces
+  // out-of-range indices. `>>> 0` keeps the value unsigned.
   let x = rngState;
   x ^= x << 13; x >>>= 0;
   x ^= x >>> 17;
   x ^= x << 5;  x >>>= 0;
   rngState = x;
-  return (x & 0xffffffff) / 4294967296;
+  return x / 4294967296;
 }
 let rand = Math.random;
 
@@ -469,18 +475,111 @@ function report(stats) {
   }
 }
 
+// ============================================================================
+// TUNER — find PAY_TABLE scaler + SCATTER_FILL_PROB that hit target RTP + FS
+// frequency. Coarse: 1) tune scatter spawn to hit FS-rate target. 2) binary-
+// search a uniform paytable divisor to hit RTP target.
+// ============================================================================
+const BASE_PAY_TABLE = PAY_TABLE.map(row => row.slice());
+function scalePayTable(div) {
+  PAY_TABLE = BASE_PAY_TABLE.map(row => row.map(v => v / div));
+}
+function probeFsRate(spins, scatterProb) {
+  SCATTER_FILL_PROB = scatterProb;
+  let trig = 0;
+  for (let i = 0; i < spins; i++) {
+    const out = fullSpin({ bet: 1 });
+    if (out.fsTriggered) trig++;
+  }
+  return spins / Math.max(1, trig);
+}
+function probeRtp(spins) {
+  let totalBet = 0, totalWin = 0;
+  for (let i = 0; i < spins; i++) {
+    const out = fullSpin({ bet: 1 });
+    totalBet += out.effectiveBet;
+    totalWin += out.totalWin;
+  }
+  return totalWin / totalBet;
+}
+async function tune({ rtpTarget, fsRateTarget, probeSpins }) {
+  // Seed each probe identically so binary search sees a deterministic
+  // function of the knob — without this, RNG variance on small probes
+  // makes the search wander. Verify at the end with a fresh seed.
+  const PROBE_SEED = 0xC0FFEE;
+
+  // --- step 1: SCATTER_FILL_PROB so FS rate ≈ target -------------------------
+  console.log(`\n[tune] step 1 — calibrate FS rate to 1/${fsRateTarget} spins`);
+  let lo = 0.005, hi = 0.20;
+  for (let it = 0; it < 16; it++) {
+    const mid = (lo + hi) / 2;
+    setSeed(PROBE_SEED); rand = seededRand;
+    const got = probeFsRate(probeSpins, mid);
+    process.stderr.write(`  iter ${it+1}  scatProb=${mid.toFixed(4)}  → 1/${got.toFixed(0)}\n`);
+    if (got > fsRateTarget) lo = mid;
+    else hi = mid;
+    if (Math.abs(got - fsRateTarget) / fsRateTarget < 0.03) break;
+  }
+  SCATTER_FILL_PROB = (lo + hi) / 2;
+  console.log(`  → SCATTER_FILL_PROB = ${SCATTER_FILL_PROB.toFixed(4)}`);
+
+  // --- step 2: PAY_TABLE divisor so RTP ≈ target -----------------------------
+  console.log(`\n[tune] step 2 — calibrate paytable divisor to RTP ${(rtpTarget*100).toFixed(2)}%`);
+  let dLo = 1, dHi = 50;
+  for (let it = 0; it < 18; it++) {
+    const mid = (dLo + dHi) / 2;
+    scalePayTable(mid);
+    setSeed(PROBE_SEED); rand = seededRand;
+    const got = probeRtp(probeSpins);
+    process.stderr.write(`  iter ${it+1}  div=${mid.toFixed(3)}  → RTP ${(got*100).toFixed(2)}%\n`);
+    if (got > rtpTarget) dLo = mid;
+    else dHi = mid;
+    if (Math.abs(got - rtpTarget) / rtpTarget < 0.002) break;
+  }
+  const divisor = (dLo + dHi) / 2;
+  scalePayTable(divisor);
+  console.log(`  → PAY_TABLE divisor = ${divisor.toFixed(3)}`);
+  // Restore Math.random for the unseeded verify pass
+  rand = Math.random;
+  return { scatterProb: SCATTER_FILL_PROB, payDivisor: divisor };
+}
+
 // ----------------------------------------------------------------------------
 // CLI
 // ----------------------------------------------------------------------------
 const args = process.argv.slice(2);
-const N = parseInt(args[0] || "100000", 10);
-const BET = parseFloat(args[1] || "1.00");
-const MODE = args[2] || "base"; // "base" or "wild"
-const SEED = args[3] ? parseInt(args[3], 10) : null;
-if (SEED !== null) { setSeed(SEED); rand = seededRand; }
 
-const t0 = Date.now();
-const stats = runSim(N, BET, MODE);
-const dt = (Date.now() - t0) / 1000;
-report(stats);
-console.log(`\n(${dt.toFixed(1)}s, ${Math.round(N / dt).toLocaleString()} spins/s)`);
+if (args[0] === "tune") {
+  // Usage: node sim.js tune [rtp=0.9630] [fsRate=220] [probeSpins=60000] [verifySpins=500000]
+  const RTP_T   = parseFloat(args[1] || "0.9630");
+  const FS_T    = parseInt  (args[2] || "220",     10);
+  const PROBE   = parseInt  (args[3] || "60000",   10);
+  const VERIFY  = parseInt  (args[4] || "500000",  10);
+  (async () => {
+    const t0 = Date.now();
+    const result = await tune({ rtpTarget: RTP_T, fsRateTarget: FS_T, probeSpins: PROBE });
+    console.log(`\n[tune] verifying with ${VERIFY.toLocaleString()} spins...`);
+    const stats = runSim(VERIFY, 1, "base");
+    report(stats);
+    console.log(`\n[tune] FINAL:`);
+    console.log(`  SCATTER_FILL_PROB = ${result.scatterProb.toFixed(4)}`);
+    console.log(`  PAY_TABLE divisor = ${result.payDivisor.toFixed(3)}`);
+    console.log(`  Scaled paytable:`);
+    for (let i = 0; i < PAY_TABLE.length; i++) {
+      const row = PAY_TABLE[i].map(v => +v.toFixed(3)).join(", ");
+      console.log(`    [${row}],`);
+    }
+    console.log(`\n(${((Date.now()-t0)/1000).toFixed(1)}s)`);
+  })();
+} else {
+  const N = parseInt(args[0] || "100000", 10);
+  const BET = parseFloat(args[1] || "1.00");
+  const MODE = args[2] || "base";
+  const SEED = args[3] ? parseInt(args[3], 10) : null;
+  if (SEED !== null) { setSeed(SEED); rand = seededRand; }
+  const t0 = Date.now();
+  const stats = runSim(N, BET, MODE);
+  const dt = (Date.now() - t0) / 1000;
+  report(stats);
+  console.log(`\n(${dt.toFixed(1)}s, ${Math.round(N / dt).toLocaleString()} spins/s)`);
+}

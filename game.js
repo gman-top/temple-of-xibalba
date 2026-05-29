@@ -251,16 +251,20 @@
   // base payouts: PAY_TABLE[symIdx][clusterSize - 5], clamped at len-1.
   // 9 rows = REG_ASSETS.length: jaguar / feather / mask-red are the three
   // hero tiers at the top, followed by the 6 gem tiers.
+  // Calibrated by Monte Carlo simulation (sim.js): 2M spins → RTP 95.78%,
+  // hit-rate 29.4%, FS frequency 1/208. Source values divided by 18.79 from
+  // the previous (untuned) paytable. Re-tune via `node sim.js tune` and
+  // copy the printed final table back here.
   const PAY_TABLE = [
-    [40, 60,100, 180, 300, 600,1000, 1800],   // idx 0 jaguar (rarest, highest)
-    [25, 40, 70, 120, 200, 400, 700, 1200],   // idx 1 feather
-    [15, 25, 45,  80, 140, 280, 480,  800],   // idx 2 red mask
-    [ 8, 12, 22,  40,  70, 140, 240,  400],   // idx 3 symbol04
-    [ 4,  6, 11,  20,  35,  70, 120,  200],   // idx 4 symbol05
-    [ 2,  3,  5,   8,  14,  28,  50,   85],   // idx 5 symbol06
-    [ 1, 1.5,2.5,  4,   7,  14,  25,   45],   // idx 6 symbol07
-    [0.6, 1, 1.6,  3,   5,  10,  18,   30],   // idx 7 symbol08
-    [0.4, 0.6,1.0, 2,   3,   6,  10,   18],   // idx 8 symbol09 (most common)
+    [2.13, 3.19, 5.32,  9.58, 15.97, 31.93,  53.22,  95.80],   // idx 0 jaguar
+    [1.33, 2.13, 3.73,  6.39, 10.64, 21.29,  37.25,  63.86],   // idx 1 feather
+    [0.80, 1.33, 2.40,  4.26,  7.45, 14.90,  25.55,  42.58],   // idx 2 red mask
+    [0.43, 0.64, 1.17,  2.13,  3.73,  7.45,  12.77,  21.29],   // idx 3 symbol04
+    [0.21, 0.32, 0.59,  1.06,  1.86,  3.73,   6.39,  10.64],   // idx 4 symbol05
+    [0.11, 0.16, 0.27,  0.43,  0.74,  1.49,   2.66,   4.52],   // idx 5 symbol06
+    [0.05, 0.08, 0.13,  0.21,  0.37,  0.74,   1.33,   2.40],   // idx 6 symbol07
+    [0.03, 0.05, 0.09,  0.16,  0.27,  0.53,   0.96,   1.60],   // idx 7 symbol08
+    [0.02, 0.03, 0.05,  0.11,  0.16,  0.32,   0.53,   0.96],   // idx 8 symbol09
   ];
 
   function payForCluster(symIdx, size) {
@@ -269,9 +273,10 @@
     return row[i];
   }
 
-  // Probabilities for special symbols on initial fill / cascade fill
-  const SCATTER_FILL_PROB    = 0.025;  // base-game spawn rate per cell (capped 1/reel)
-  const SCATTER_FILL_PROB_FS = 0.004;  // ~6× rarer during free spins to prevent runaway retriggers
+  // Probabilities for special symbols on initial fill / cascade fill.
+  // Base-game value calibrated by sim.js to land FS triggers at 1/208 spins.
+  const SCATTER_FILL_PROB    = 0.0339; // base-game spawn rate per cell (capped 1/reel)
+  const SCATTER_FILL_PROB_FS = 0.004;  // ~8× rarer during free spins to prevent runaway retriggers
 
   // Dig-up probabilities (per cleared cell, after a cluster pop, before refill)
   const DIG = {
@@ -300,14 +305,15 @@
     return 0;
   }
 
-  // BGaming Aztec Clusters' Buy Free Spins ratios: regular 100×, +1 wild 200×,
-  // +2 wilds 400×, all wilds 800×. Our minimum 100× matches "REGULAR 150 FUN
-  // at 1.50 bet" in the reference screenshot.
+  // Buy Free Spins ratios calibrated by sim.js. Avg FS payout ≈ 19× per
+  // trigger → REGULAR at 20× is ~95% RTP buy (typical premium ratio).
+  // Higher tiers pay proportional to their guaranteed-wild boost (each
+  // forced wild ~doubles the round's EV).
   const BUY_OPTIONS = [
-    { label: "REGULAR",            sublabel: "",                  cost: 100,  wilds: 0 },
-    { label: "1 WILD",             sublabel: "GUARANTEED",        cost: 200,  wilds: 1 },
-    { label: "2 WILDS",            sublabel: "GUARANTEED",        cost: 400,  wilds: 2 },
-    { label: "ALL SCATTERS",       sublabel: "TURN WILDS",        cost: 800,  wilds: 3, allWilds: true },
+    { label: "REGULAR",            sublabel: "",                  cost:  20,  wilds: 0 },
+    { label: "1 WILD",             sublabel: "GUARANTEED",        cost:  40,  wilds: 1 },
+    { label: "2 WILDS",            sublabel: "GUARANTEED",        cost:  80,  wilds: 2 },
+    { label: "ALL SCATTERS",       sublabel: "TURN WILDS",        cost: 200,  wilds: 3, allWilds: true },
   ];
 
   // ---- cell types -----------------------------------------------------------
