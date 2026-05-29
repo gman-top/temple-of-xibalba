@@ -251,20 +251,20 @@
   // base payouts: PAY_TABLE[symIdx][clusterSize - 5], clamped at len-1.
   // 9 rows = REG_ASSETS.length: jaguar / feather / mask-red are the three
   // hero tiers at the top, followed by the 6 gem tiers.
-  // Calibrated by Monte Carlo simulation (sim.js): 2M spins → RTP 95.78%,
-  // hit-rate 29.4%, FS frequency 1/208. Source values divided by 18.79 from
-  // the previous (untuned) paytable. Re-tune via `node sim.js tune` and
-  // copy the printed final table back here.
+  // Calibrated by Monte Carlo simulation (sim.js) with FS boost active
+  // (1 guaranteed wild per FS spin): RTP ~96%, hit 29.4%, FS 1/220,
+  // FS-share ~18% of RTP. Re-tune via `node sim.js tune` and copy the
+  // printed final table back here.
   const PAY_TABLE = [
-    [2.13, 3.19, 5.32,  9.58, 15.97, 31.93,  53.22,  95.80],   // idx 0 jaguar
-    [1.33, 2.13, 3.73,  6.39, 10.64, 21.29,  37.25,  63.86],   // idx 1 feather
-    [0.80, 1.33, 2.40,  4.26,  7.45, 14.90,  25.55,  42.58],   // idx 2 red mask
-    [0.43, 0.64, 1.17,  2.13,  3.73,  7.45,  12.77,  21.29],   // idx 3 symbol04
-    [0.21, 0.32, 0.59,  1.06,  1.86,  3.73,   6.39,  10.64],   // idx 4 symbol05
-    [0.11, 0.16, 0.27,  0.43,  0.74,  1.49,   2.66,   4.52],   // idx 5 symbol06
-    [0.05, 0.08, 0.13,  0.21,  0.37,  0.74,   1.33,   2.40],   // idx 6 symbol07
-    [0.03, 0.05, 0.09,  0.16,  0.27,  0.53,   0.96,   1.60],   // idx 7 symbol08
-    [0.02, 0.03, 0.05,  0.11,  0.16,  0.32,   0.53,   0.96],   // idx 8 symbol09
+    [1.936, 2.900, 4.836, 8.709, 14.518, 29.027, 48.382, 87.091],  // 0 jaguar
+    [1.209, 1.936, 3.391, 5.809,  9.673, 19.355, 33.864, 58.055],  // 1 feather
+    [0.727, 1.209, 2.182, 3.873,  6.773, 13.545, 23.227, 38.709],  // 2 red mask
+    [0.391, 0.582, 1.064, 1.936,  3.391,  6.773, 11.609, 19.355],  // 3 symbol04
+    [0.191, 0.291, 0.536, 0.964,  1.691,  3.391,  5.809,  9.673],  // 4 symbol05
+    [0.100, 0.145, 0.245, 0.391,  0.673,  1.355,  2.418,  4.109],  // 5 symbol06
+    [0.045, 0.073, 0.118, 0.191,  0.336,  0.673,  1.209,  2.182],  // 6 symbol07
+    [0.027, 0.045, 0.082, 0.145,  0.245,  0.482,  0.873,  1.455],  // 7 symbol08
+    [0.018, 0.027, 0.045, 0.100,  0.145,  0.291,  0.482,  0.873],  // 8 symbol09
   ];
 
   function payForCluster(symIdx, size) {
@@ -275,7 +275,7 @@
 
   // Probabilities for special symbols on initial fill / cascade fill.
   // Base-game value calibrated by sim.js to land FS triggers at 1/208 spins.
-  const SCATTER_FILL_PROB    = 0.0339; // base-game spawn rate per cell (capped 1/reel)
+  const SCATTER_FILL_PROB    = 0.0328; // base-game spawn rate per cell (capped 1/reel)
   const SCATTER_FILL_PROB_FS = 0.004;  // ~8× rarer during free spins to prevent runaway retriggers
 
   // Dig-up probabilities (per cleared cell, after a cluster pop, before refill)
@@ -1241,7 +1241,11 @@
     if (!state.inFreeSpins) {
       state.cellMult = makeEmptyGrid(false);
     }
-    if (isWildSpin) state.guaranteedWilds = 1;
+    // Wild Spin mode AND every FS spin guarantee at least 1 wild dig-up.
+    // The FS guarantee is the engine of the "premium FS feel" — combined
+    // with cellMult persistence across FS spins it lifts FS share of RTP
+    // from ~9% to ~18% (see sim.js verification).
+    if (isWildSpin || state.inFreeSpins) state.guaranteedWilds = 1;
 
     playSfx("spin");
     await animateSpinIn(randomGrid());
