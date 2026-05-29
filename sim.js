@@ -373,7 +373,10 @@ function runFreeSpinsRound({ bet, initialAward, initialGrid, forceAllScatterToWi
 
   let spinsLeft = initialAward;
   while (spinsLeft > 0) {
-    const r = runOneSpin({ bet, inFs: true, cellMult });
+    // FS boost: every FS spin guarantees at least 1 wild on first dig-up.
+    // Combined with the cellMult persistence across FS spins, this pushes
+    // the FS contribution into premium territory (~40-50% of RTP).
+    const r = runOneSpin({ bet, inFs: true, cellMult, forceWildsAtStart: 1 });
     fsWin += r.totalWin;
     spinsLeft--;
     if (r.scatters >= 3) {
