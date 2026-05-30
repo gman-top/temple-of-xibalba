@@ -1,0 +1,5 @@
+node_modules/
+xibalba.db
+xibalba.db-*
+*.log
+.DS_Store

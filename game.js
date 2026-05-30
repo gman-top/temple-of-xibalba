@@ -321,6 +321,60 @@
   //                  { t: "wild", m: 10..100 } | { t: "booster" } | { t: "destroyer" }
   const TY = { REG: "reg", SCAT: "scatter", WILD: "wild", BOOST: "booster", DEST: "destroyer" };
 
+  // ---- provably-fair backend integration ----------------------------------
+  // SERVER_MODE: when true, every spin/buy-bonus is sent to the server and
+  // the returned outcome is replayed locally. Outcomes are deterministic
+  // from (serverSeed, clientSeed, nonce) so the player can verify any past
+  // spin independently. When the API can't be reached we fall back to the
+  // local Math.random path so the game remains playable offline.
+  const API_BASE = (typeof window !== "undefined"
+    && (window.location.protocol === "http:" || window.location.protocol === "https:"))
+    ? `${window.location.protocol}//${window.location.host}`
+    : "http://localhost:3000";
+  let SERVER_MODE = false;             // flipped on after ensureSession() succeeds
+  let SESSION = null;                  // { id, serverSeedHash, clientSeed, nonce, balance, bet, betIdx, buyBonusIdx }
+  const LS_KEY = "xibalba_session_id";
+
+  async function api(path, opts = {}) {
+    const url = `${API_BASE}/api${path}`;
+    const r = await fetch(url, {
+      method: opts.method || "GET",
+      headers: { "Content-Type": "application/json" },
+      body: opts.body ? JSON.stringify(opts.body) : undefined,
+    });
+    if (!r.ok) {
+      let body = {};
+      try { body = await r.json(); } catch (_) {}
+      const e = new Error(body.error || `HTTP ${r.status}`);
+      e.status = r.status; e.body = body;
+      throw e;
+    }
+    return r.json();
+  }
+
+  async function ensureSession() {
+    const cached = (typeof localStorage !== "undefined") ? localStorage.getItem(LS_KEY) : null;
+    if (cached) {
+      try { SESSION = await api(`/session/${cached}`); SERVER_MODE = true; return; }
+      catch (_) { /* expired or server down — fall through */ }
+    }
+    try {
+      SESSION = await api(`/session`, { method: "POST", body: {} });
+      if (typeof localStorage !== "undefined") localStorage.setItem(LS_KEY, SESSION.id);
+      SERVER_MODE = true;
+    } catch (_) {
+      SERVER_MODE = false;   // offline / standalone demo mode
+      console.warn("[xibalba] backend unreachable, running standalone demo mode");
+    }
+  }
+
+  // Engine cells use integer `t` (0=reg, 1=scat, 2=wild, ...). Local code
+  // uses string `t`. Convert both directions when bridging.
+  const TY_INT_TO_STR = ["reg", "scatter", "wild", "booster", "destroyer"];
+  function unboxCell(v) { if (!v) return null; return { ...v, t: TY_INT_TO_STR[v.t] }; }
+  function unboxGrid(g) { return g.map((row) => row.map(unboxCell)); }
+  function cloneMultGrid(m) { return m.map((row) => row.slice()); }
+
   // ---- state ----------------------------------------------------------------
   const state = {
     grid: [],
@@ -1202,7 +1256,202 @@
   }
 
   // ---- core spin loop --------------------------------------------------------
+
+  // Replay one engine outcome (from /api/.../spin or /api/.../buy-bonus).
+  // Drives the same animation pipeline as the local-RNG path but the
+  // cells/clusters/dig-up positions all come from the server-signed
+  // outcome — no client RNG, fully auditable.
+  async function replayBaseSpin(base, effectiveBet) {
+    state.cellMult = makeEmptyGrid(false);
+    await animateSpinIn(unboxGrid(base.initialGrid));
+    state.grid = unboxGrid(base.initialGrid);
+
+    for (const step of base.cascades) {
+      playSfx("spinLand");
+      playSfx("clusterPop");
+      const allCells = [];
+      const winInfo = [];
+      for (const cl of step.clusters) {
+        const payMult = +(cl.win / effectiveBet).toFixed(2);
+        winInfo.push({ cells: cl.cells, symIdx: cl.symIdx, size: cl.size, payMult, amount: cl.win });
+        allCells.push(...cl.cells);
+      }
+      state.totalSpinWin += step.stepWin;
+      state.lastWin = state.totalSpinWin;
+      refreshHUD();
+
+      await animateMatched(allCells, winInfo);
+      state.grid = unboxGrid(step.gridAfter);
+      state.cellMult = cloneMultGrid(step.multAfter);
+
+      // Show dig-up bursts on cells the server picked.
+      if (step.dig) {
+        if (step.dig.wilds.length)    playSfx("wildDig");
+        if (step.dig.scatters.length) playSfx("scatter");
+        for (const arr of [step.dig.wilds, step.dig.boosters, step.dig.destroyers, step.dig.scatters]) {
+          for (const [r, c] of arr) digBurst(cellAt(r, c));
+        }
+      }
+      await animateCascade();
+      paintAll();
+    }
+  }
+
+  async function replayFreeSpinsRound(fs, effectiveBet) {
+    state.inFreeSpins = true;
+    state.freeSpinsTotal = fs.totalAward;
+    state.freeSpinsLeft = fs.totalAward;
+    state.freeSpinsWin = 0;
+    stage.classList.add("fs-active");
+    if (window.__xibalbaAudio) window.__xibalbaAudio.startBgm("fs");
+
+    // Convert scatters per the engine's deterministic plan.
+    for (const conv of fs.conversion) {
+      const cell = state.grid[conv.r];
+      if (!cell) continue;
+      if (conv.to === "wild") state.grid[conv.r][conv.c] = { t: "wild", m: 10 };
+      else { state.grid[conv.r][conv.c] = null; state.cellMult[conv.r][conv.c] = 10; }
+    }
+    paintAll();
+    playSfx("fsTrigger");
+    refreshFSBanner(); refreshBonusActive();
+    await showFsTriggerModal(fs.totalAward);
+
+    // Open-cascade once on prepared grid (wilds may have lined up).
+    for (const step of fs.openCascades) {
+      const allCells = [];
+      const winInfo = [];
+      for (const cl of step.clusters) {
+        const payMult = +(cl.win / effectiveBet).toFixed(2);
+        winInfo.push({ cells: cl.cells, symIdx: cl.symIdx, size: cl.size, payMult, amount: cl.win });
+        allCells.push(...cl.cells);
+      }
+      state.freeSpinsWin += step.stepWin;
+      refreshFSBanner(); refreshBonusActive();
+      await animateMatched(allCells, winInfo);
+      state.grid = unboxGrid(step.gridAfter);
+      state.cellMult = cloneMultGrid(step.multAfter);
+      await animateCascade();
+      paintAll();
+    }
+
+    // Run each FS spin.
+    for (const spin of fs.fsSpins) {
+      await ffWait(400);
+      await replayBaseSpin({ initialGrid: spin.initialGrid, cascades: spin.cascades }, effectiveBet);
+      state.freeSpinsWin += spin.totalWin;
+      state.freeSpinsLeft--;
+      refreshFSBanner(); refreshBonusActive();
+      if (spin.retrigger) {
+        state.freeSpinsTotal += spin.retrigger;
+        state.freeSpinsLeft += spin.retrigger;
+        winBannerText.textContent = `+${spin.retrigger} FREE SPINS`;
+        winBanner.classList.add("visible");
+        await ffWait(1400);
+        winBanner.classList.remove("visible");
+      }
+    }
+    await endFreeSpins();
+  }
+
+  async function spinViaServer({ wildSpinActive }) {
+    state.spinning = true;
+    btnSpin.disabled = true;
+    btnSpin.classList.add("spinning");
+    state.lastWin = 0;
+    state.totalSpinWin = 0;
+    hideSpinWinPopup();
+    refreshHUD();
+    try {
+      const r = await api(`/session/${SESSION.id}/spin`, {
+        method: "POST",
+        body: { action: wildSpinActive ? "wild_spin" : "spin" },
+      });
+      SESSION.nonce = r.nonce + 1;
+      playSfx("spin");
+      await replayBaseSpin(r.outcome.base, r.outcome.bet);
+      if (r.outcome.fs) await replayFreeSpinsRound(r.outcome.fs, r.outcome.bet);
+      state.balance = r.balance;
+      refreshHUD();
+      if (r.outcome.totalWin > 0) {
+        showSpinWinPopup(r.outcome.totalWin);
+        await maybeShowBigWin(r.outcome.totalWin, r.outcome.bet);
+      }
+      if (wildSpinActive) {
+        state.wildSpinArmed = false;
+        btnWildSpin.setAttribute("aria-pressed", "false");
+      }
+    } catch (err) {
+      console.error("spinViaServer error:", err);
+      if (err.body && err.body.error === "INSUFFICIENT_BALANCE") flashHUD(hudBalance);
+    } finally {
+      state.spinning = false;
+      btnSpin.disabled = false;
+      btnSpin.classList.remove("spinning");
+    }
+
+    // Autoplay continuation in server mode
+    if (state.autoplayLeft > 0) {
+      state.autoplayLeft--;
+      if (state.autoplayLeft > 0 && state.balance >= state.bet) {
+        await ffWait(450);
+        spin();
+      } else {
+        state.autoplayLeft = 0;
+        btnAutoplay.classList.remove("active");
+      }
+    }
+  }
+
+  async function buyBonusViaServer(opt) {
+    closeModal(bbConfirmModal);
+    closeModal(buyBonusModal);
+    try {
+      await api(`/session/${SESSION.id}/buy-bonus-idx`, {
+        method: "POST", body: { idx: opt.idx },
+      });
+      state.spinning = true;
+      btnSpin.disabled = true;
+      btnSpin.classList.add("spinning");
+      state.lastWin = 0; state.totalSpinWin = 0;
+      hideSpinWinPopup(); refreshHUD();
+      const r = await api(`/session/${SESSION.id}/buy-bonus`, { method: "POST", body: {} });
+      SESSION.nonce = r.nonce + 1;
+      // Buy bonus paints a grid with the chosen scatter cells, then opens FS.
+      state.grid = makeEmptyGrid(true);
+      for (const [r2, c2] of r.outcome.scatterCellsAtTrigger) {
+        state.grid[r2][c2] = { t: "scatter" };
+      }
+      paintAll();
+      await replayFreeSpinsRound(r.outcome.fs, r.outcome.bet);
+      state.balance = r.balance;
+      refreshHUD();
+      if (r.outcome.totalWin > 0) {
+        showSpinWinPopup(r.outcome.totalWin);
+        await maybeShowBigWin(r.outcome.totalWin, r.outcome.bet);
+      }
+    } catch (err) {
+      console.error("buyBonusViaServer error:", err);
+      if (err.body && err.body.error === "INSUFFICIENT_BALANCE") flashHUD(hudBalance);
+    } finally {
+      state.spinning = false;
+      btnSpin.disabled = false;
+      btnSpin.classList.remove("spinning");
+    }
+  }
+
   async function spin({ skipBet = false } = {}) {
+    if (state.spinning) return;
+    if (SERVER_MODE && SESSION && !state.inFreeSpins) {
+      // In server mode the entire FS round is bundled into the spin response,
+      // so we never have a standalone "FS continue" call from here.
+      const wildSpinActive = state.wildSpinArmed && !state.inFreeSpins;
+      return spinViaServer({ wildSpinActive });
+    }
+    return spinLocal({ skipBet });
+  }
+
+  async function spinLocal({ skipBet = false } = {}) {
     if (state.spinning) return;
 
     const isWildSpin = state.wildSpinArmed && !state.inFreeSpins;
@@ -1583,14 +1832,14 @@
   function closeModal(el) { el.classList.remove("visible"); el.setAttribute("aria-hidden", "true"); }
 
   async function buyBonus(opt) {
+    if (state.spinning) return;
+    if (SERVER_MODE && SESSION) return buyBonusViaServer(opt);
     closeModal(bbConfirmModal);
     closeModal(buyBonusModal);
-    if (state.spinning) return;
     const cost = opt.cost * state.bet;
     if (state.balance < cost) { flashHUD(hudBalance); return; }
     state.balance -= cost;
     refreshHUD();
-    // Force a free-spin trigger: prime the next spin so that ≥3 scatters land
     state.pendingBuyTrigger = { wilds: opt.wilds, allWilds: !!opt.allWilds };
     await triggerBuyBonusSpin(opt);
   }
@@ -1809,15 +2058,21 @@
     refreshWildSpinModal();
   });
 
+  function syncBetToServer() {
+    if (!SERVER_MODE || !SESSION) return;
+    api(`/session/${SESSION.id}/bet`, { method: "POST", body: { betIdx: state.betIdx } }).catch(() => {});
+  }
   betUp.addEventListener("click", () => {
     state.betIdx = Math.min(BET_LEVELS.length - 1, state.betIdx + 1);
     state.bet = BET_LEVELS[state.betIdx];
     refreshHUD();
+    syncBetToServer();
   });
   betDown.addEventListener("click", () => {
     state.betIdx = Math.max(0, state.betIdx - 1);
     state.bet = BET_LEVELS[state.betIdx];
     refreshHUD();
+    syncBetToServer();
   });
 
   document.addEventListener("keydown", (e) => {
@@ -1846,6 +2101,17 @@
   refreshHUD();
   refreshFSBanner(); refreshBonusActive();
   renderPaytable();
+
+  // Kick off provably-fair session in the background. When it returns we
+  // adopt the server's balance/bet/nonce so subsequent spins are auditable.
+  ensureSession().then(() => {
+    if (SERVER_MODE && SESSION) {
+      state.balance = SESSION.balance;
+      state.bet = SESSION.bet;
+      state.betIdx = SESSION.betIdx;
+      refreshHUD();
+    }
+  });
 
   // Three-step entry flow:
   //   1) Aigo brand splash (~1.8s) — fades out
