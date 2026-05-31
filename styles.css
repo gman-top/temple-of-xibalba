@@ -2203,7 +2203,11 @@ button:active img {
   50%      { filter: hue-rotate(40deg);  }
 }
 
-/* Big-win screen shake — used on tier-huge+ clusters. */
+/* Big-win screen shake — applied to #stage-wrap (the fixed viewport-filling
+   parent) NOT #stage itself, because #stage has its own transform:scale()
+   set by fit() to handle responsive scaling; shaking #stage directly would
+   clobber that scale and break the layout. stage-wrap has overflow:hidden
+   so the translate is invisibly clipped against the viewport edges. */
 @keyframes stageShake {
   0%, 100% { transform: translate(0, 0); }
   20% { transform: translate(-6px, 3px); }
@@ -2211,4 +2215,4 @@ button:active img {
   60% { transform: translate(-4px, 4px); }
   80% { transform: translate(4px, -2px); }
 }
-#stage.shake { animation: stageShake 420ms cubic-bezier(0.3, 0, 0.4, 1); }
+#stage-wrap.shake { animation: stageShake 420ms cubic-bezier(0.3, 0, 0.4, 1); }

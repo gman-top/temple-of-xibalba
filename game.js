@@ -999,10 +999,16 @@
     // Bigger wins also shake the stage. Re-trigger animation on each call so
     // multiple back-to-back huge clusters compound the shake.
     if (tier === "huge" || tier === "mega") {
-      stage.classList.remove("shake");
-      void stage.offsetWidth;
-      stage.classList.add("shake");
-      setTimeout(() => stage.classList.remove("shake"), 450);
+      // Shake the wrapper, NOT #stage — #stage has a transform:scale set
+      // by fit() that the shake's transform:translate would otherwise wipe,
+      // breaking the layout until the next resize.
+      const wrap = document.getElementById("stage-wrap");
+      if (wrap) {
+        wrap.classList.remove("shake");
+        void wrap.offsetWidth;
+        wrap.classList.add("shake");
+        setTimeout(() => wrap.classList.remove("shake"), 450);
+      }
     }
   }
 
