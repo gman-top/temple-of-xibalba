@@ -953,32 +953,76 @@
     setTimeout(() => burst.remove(), 600);
   }
 
-  // Concentric red ring that ripples out from a destroyer cell — makes it
-  // unmistakable that the destroyer is unleashing a board-wide effect.
+  // Concentric red ring that ripples out from a destroyer cell.
   function emitDestroyerShockwave(cell) {
     const p = stageCoords(cell.getBoundingClientRect());
-    for (let i = 0; i < 2; i++) {
+    for (let i = 0; i < 3; i++) {
       const ring = document.createElement("div");
       ring.className = "destroyer-shockwave";
       ring.style.left = p.x + "px";
       ring.style.top  = p.y + "px";
-      ring.style.animationDelay = (i * 140) + "ms";
+      ring.style.animationDelay = (i * 160) + "ms";
       stage.appendChild(ring);
-      setTimeout(() => ring.remove(), 1000 + i * 140);
+      setTimeout(() => ring.remove(), 1100 + i * 160);
     }
   }
 
-  // "DESTROYER · -N SYMBOLS" badge over the destroyer cell so the player
-  // gets a literal explanation of what just happened, not just sparks.
-  function showDestroyerLabel(cell, killCount) {
-    const p = stageCoords(cell.getBoundingClientRect());
+  // Big centered banner explaining what the destroyer does. Holds long
+  // enough to read: "DESTROYS LOW SYMBOLS · -N CLEARED".
+  function showDestroyerBanner(killCount) {
     const el = document.createElement("div");
-    el.className = "destroyer-label";
-    el.style.left = p.x + "px";
-    el.style.top  = p.y + "px";
-    el.innerHTML = `DESTROYER<span class="dl-count">−${killCount} low symbol${killCount === 1 ? "" : "s"}</span>`;
+    el.className = "destroyer-banner";
+    el.innerHTML =
+      `DESTROYER ACTIVATED` +
+      `<span class="db-sub">Clears low symbols · ${killCount} removed</span>`;
     stage.appendChild(el);
-    setTimeout(() => el.remove(), 1400);
+    setTimeout(() => el.remove(), 2500);
+  }
+
+  // SVG lightning arcs from destroyer cell to each victim — shows the
+  // cause-and-effect: the destroyer is reaching out and zapping the
+  // doomed low-tier symbols.
+  function drawDestroyerArcs(destroyerPos, victimPositions) {
+    let svg = document.getElementById("destroyerArcs");
+    if (!svg) {
+      svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("id", "destroyerArcs");
+      svg.setAttribute("class", "destroyer-arcs");
+      stage.appendChild(svg);
+    }
+    svg.innerHTML = "";
+
+    const reelRect = reelsEl.getBoundingClientRect();
+    const cellInReelCoords = (r, c) => {
+      const cellRect = cellAt(r, c).getBoundingClientRect();
+      return {
+        x: (cellRect.left + cellRect.width / 2  - reelRect.left) * (svg.clientWidth  / reelRect.width),
+        y: (cellRect.top  + cellRect.height / 2 - reelRect.top ) * (svg.clientHeight / reelRect.height),
+      };
+    };
+
+    const start = cellInReelCoords(destroyerPos[0], destroyerPos[1]);
+    const paths = [];
+    for (let i = 0; i < victimPositions.length; i++) {
+      const [vr, vc] = victimPositions[i];
+      const end = cellInReelCoords(vr, vc);
+      // Mid-point with a jagged offset so the arc looks like lightning,
+      // not a straight line.
+      const mx = (start.x + end.x) / 2 + (Math.random() - 0.5) * 36;
+      const my = (start.y + end.y) / 2 + (Math.random() - 0.5) * 36;
+      const d = `M ${start.x.toFixed(1)} ${start.y.toFixed(1)} Q ${mx.toFixed(1)} ${my.toFixed(1)} ${end.x.toFixed(1)} ${end.y.toFixed(1)}`;
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      path.setAttribute("class", "arc-path");
+      path.setAttribute("d", d);
+      path.style.animationDelay = (i * 40) + "ms";
+      svg.appendChild(path);
+      paths.push(path);
+    }
+    return { svg, paths };
+  }
+  function clearDestroyerArcs() {
+    const svg = document.getElementById("destroyerArcs");
+    if (svg) svg.innerHTML = "";
   }
 
   // Convert a viewport rect into stage-local coords (un-scaled)
@@ -1478,16 +1522,19 @@
         }
         if (d.destroyers.length) {
           const killed = d.destroyerKilled || [];
-          // Phase A: light up the destroyer cell + show literal "DESTROYER -N"
-          // badge + emit a shockwave ring. Holds long enough for the player
-          // to read what's about to happen.
+          // -------- PHASE 1: announce ----------------------------------
+          //   The destroyer cell pulses + grows. A big centered banner pops
+          //   up explaining "DESTROYER · clears N low symbols". A shockwave
+          //   ring ripples from the destroyer. Stage shakes for impact.
+          //   The player gets ~1s to read what is happening BEFORE anything
+          //   is removed — vs. the old version where everything flashed by
+          //   in 400ms and the player learned nothing.
           for (const [r, c] of d.destroyers) {
             const cell = cellAt(r, c);
             cell.classList.add("destroyer-active");
-            showDestroyerLabel(cell, killed.length);
             emitDestroyerShockwave(cell);
           }
-          // Stage shake reinforces the impact across the whole board.
+          showDestroyerBanner(killed.length);
           const wrap = document.getElementById("stage-wrap");
           if (wrap) {
             wrap.classList.remove("shake");
@@ -1495,19 +1542,34 @@
             wrap.classList.add("shake");
             setTimeout(() => wrap.classList.remove("shake"), 450);
           }
-          await ffWait(550);
+          await ffWait(1000);
 
-          // Phase B: each victim cell shakes + flares + dissolves. Driven
-          // by the .destroying CSS keyframes (0.7s). Sparks add grit.
+          // -------- PHASE 2: mark the targets --------------------------
+          //   Every doomed cell gets a pulsing red overlay BEFORE it dies.
+          //   Lightning arcs are drawn from the destroyer to each victim
+          //   so the cause-effect is obvious: "this is what the destroyer
+          //   is reaching out to kill". Holds for ~700ms so the player
+          //   can see which symbols are being targeted.
+          for (const [r, c] of killed) {
+            cellAt(r, c).classList.add("destroyer-target");
+          }
+          const arcInfo = (killed.length && d.destroyers.length)
+            ? drawDestroyerArcs(d.destroyers[0], killed)
+            : null;
+          await ffWait(800);
+
+          // -------- PHASE 3: destruction --------------------------------
+          //   Targets dissolve (shake + flare + scale-out, 0.7s). Sparks
+          //   add violent grit. Arcs fade off.
           for (const [r, c] of killed) {
             const cell = cellAt(r, c);
+            cell.classList.remove("destroyer-target");
             cell.classList.add("destroying");
-            emitSparks(cell, 10, "red");
+            emitSparks(cell, 12, "red");
           }
           await ffWait(700);
 
-          // Phase C: clean up — destroy victims, remove destroyer itself,
-          // strip animation classes.
+          // -------- PHASE 4: cleanup -----------------------------------
           for (const [r, c] of killed) {
             state.grid[r][c] = null;
             cellAt(r, c).classList.remove("destroying");
@@ -1516,8 +1578,9 @@
             state.grid[r][c] = null;
             cellAt(r, c).classList.remove("destroyer-active");
           }
+          clearDestroyerArcs();
           paintAll();
-          await ffWait(220);
+          await ffWait(280);
         }
       }
 

@@ -2218,22 +2218,145 @@ button:active img {
 #stage-wrap.shake { animation: stageShake 420ms cubic-bezier(0.3, 0, 0.4, 1); }
 
 /* ---- Destroyer dramatic animation ---------------------------------------
-   When a destroyer symbol lands during dig-up, the player needs to SEE
-   that it sweeps low-tier symbols off the board. The base visual was just
-   tiny red sparks — easy to miss. This bundle adds:
-     - destroyer-active : pulsing crimson ring on the destroyer cell
-     - destroyer-shockwave : ring that ripples outward from the destroyer
-     - destroying : per-victim cell, shake + brightness flare + scale-out
-     - destroyer-label : "DESTROYER · -N SYMBOLS" badge popping above cell
+   When a destroyer symbol lands during dig-up, the player needs to clearly
+   understand that it SWEEPS LOW-TIER SYMBOLS off the board. The previous
+   visual was too brief and didn't show WHICH cells were being targeted.
+   This version is pedagogical:
+     - destroyer-active : pulsing crimson ring + scale-up + shake on the
+                          destroyer cell (PLUS the .badge is enlarged via
+                          filter so the symbol image really stands out)
+     - destroyer-shockwave : red ring rippling outward from the destroyer
+     - destroyer-target : red overlay on each victim cell BEFORE it dies
+                          so the player sees the targeting
+     - destroying : per-victim shake + brightness flare + dissolve
+     - destroyer-banner : full-grid badge stating "DESTROYS LOW SYMBOLS"
+                          so the player learns what's happening
+     - destroyer-arc : SVG lightning arcs from destroyer to each victim
 */
 .cell.destroyer-active {
-  animation: destroyerPulse 0.55s ease-in-out infinite;
-  z-index: 5;
+  animation: destroyerPulse 0.6s ease-in-out infinite;
+  z-index: 10;
+}
+.cell.destroyer-active .badge {
+  filter: drop-shadow(0 0 18px rgba(255, 60, 30, 1))
+          drop-shadow(0 0 32px rgba(255, 40, 30, 0.95))
+          brightness(1.4) saturate(1.4);
+  animation: destroyerBadgeShake 0.4s ease-in-out infinite;
+  transform-origin: center;
+}
+@keyframes destroyerBadgeShake {
+  0%, 100% { transform: scale(1.15) translate(0, 0)   rotate(0deg); }
+  25%      { transform: scale(1.2)  translate(-2px, 1px) rotate(-3deg); }
+  50%      { transform: scale(1.15) translate(2px, -1px) rotate(2deg); }
+  75%      { transform: scale(1.2)  translate(-1px, 1px) rotate(-2deg); }
 }
 .cell.destroyer-active .symbol {
   filter: drop-shadow(0 0 14px rgba(255, 60, 30, 1))
           drop-shadow(0 0 24px rgba(255, 40, 30, 0.85))
           brightness(1.35);
+}
+
+/* Red overlay marking a victim BEFORE it dissolves. Holds for ~700ms so
+   the player sees which cells the destroyer is about to wipe. */
+.cell.destroyer-target {
+  z-index: 6;
+  animation: destroyerTargetPulse 0.55s ease-in-out infinite;
+}
+.cell.destroyer-target::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border: 3px solid rgba(255, 60, 30, 0.95);
+  border-radius: 4px;
+  box-shadow:
+    inset 0 0 16px rgba(255, 80, 30, 0.55),
+    0 0 14px rgba(255, 80, 30, 0.7);
+  background: rgba(255, 30, 30, 0.18);
+  pointer-events: none;
+  animation: destroyerTargetFlash 0.55s ease-in-out infinite;
+}
+@keyframes destroyerTargetPulse {
+  0%, 100% { filter: brightness(1.0) saturate(1); }
+  50%      { filter: brightness(1.45) saturate(1.6) hue-rotate(-12deg); }
+}
+@keyframes destroyerTargetFlash {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 1;    }
+}
+
+/* Full-width centered banner explaining what the destroyer is doing. */
+.destroyer-banner {
+  position: absolute;
+  left: 50%;
+  top: 30%;
+  transform: translate(-50%, -50%) scale(0.6);
+  z-index: 30;
+  padding: 14px 32px;
+  background: linear-gradient(180deg, #6b1100, #2a0500);
+  border: 3px solid #ff5e2c;
+  border-radius: 6px;
+  color: #fff;
+  font-family: inherit;
+  font-size: 22px;
+  letter-spacing: 0.22em;
+  font-weight: 800;
+  text-transform: uppercase;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.85), 0 0 12px rgba(255,80,30,0.95);
+  box-shadow:
+    0 12px 40px rgba(200, 30, 0, 0.9),
+    0 0 0 2px rgba(255, 220, 100, 0.6) inset,
+    0 0 100px rgba(255, 60, 30, 0.45);
+  opacity: 0;
+  white-space: nowrap;
+  text-align: center;
+  animation: destroyerBannerIn 2400ms cubic-bezier(0.3, 1.4, 0.4, 1) forwards;
+}
+.destroyer-banner .db-sub {
+  display: block;
+  color: #ffdd80;
+  font-size: 14px;
+  letter-spacing: 0.18em;
+  margin-top: 4px;
+  font-weight: 600;
+}
+@keyframes destroyerBannerIn {
+  0%   { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+  10%  { transform: translate(-50%, -50%) scale(1.15); opacity: 1; }
+  18%  { transform: translate(-50%, -50%) scale(1.0); opacity: 1; }
+  82%  { transform: translate(-50%, -50%) scale(1.0); opacity: 1; }
+  100% { transform: translate(-50%, -70%) scale(0.9); opacity: 0; }
+}
+
+/* SVG lightning arcs from destroyer to victims */
+.destroyer-arcs {
+  position: absolute;
+  left: 709px;
+  top: 106px;
+  width: 502px;
+  height: 681px;
+  pointer-events: none;
+  z-index: 23;
+  overflow: visible;
+}
+.destroyer-arcs .arc-path {
+  fill: none;
+  stroke: rgba(255, 80, 30, 0.95);
+  stroke-width: 4;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 10px rgba(255, 80, 30, 1))
+          drop-shadow(0 0 18px rgba(255, 40, 30, 0.85));
+  stroke-dasharray: 8 6;
+  opacity: 0;
+  animation: arcDraw 380ms cubic-bezier(0.3, 0, 0.4, 1) forwards,
+             arcFlicker 0.18s steps(2) 380ms 4;
+}
+@keyframes arcDraw {
+  from { opacity: 0; stroke-dashoffset: 100; }
+  to   { opacity: 1; stroke-dashoffset: 0;   }
+}
+@keyframes arcFlicker {
+  0%, 100% { opacity: 1;   stroke-width: 4; }
+  50%      { opacity: 0.5; stroke-width: 2.5; }
 }
 @keyframes destroyerPulse {
   0%, 100% {
@@ -2336,7 +2459,7 @@ button:active img {
 }
 .fs-end-panel {
   position: relative;
-  padding: 60px 80px;
+  padding: 48px 72px 40px;
   background: linear-gradient(180deg, #2a0f02 0%, #100501 100%);
   border: 3px solid;
   border-image: linear-gradient(135deg, #ffd966, #ff9b30, #b54a0e, #ffd966) 1;
@@ -2347,9 +2470,13 @@ button:active img {
     0 0 0 1px rgba(255, 220, 120, 0.45) inset,
     0 0 120px rgba(255, 120, 30, 0.4);
   animation: fsEndIn 600ms cubic-bezier(0.3, 1.5, 0.4, 1);
-  min-width: 520px;
+  width: min(640px, 60%);
+  max-height: 78vh;
   overflow: hidden;
   z-index: 1;
+  box-sizing: border-box;
+  /* Allow the rays + confetti to render outside the rounded corners
+     without forcing the panel itself to overflow its box. */
 }
 @keyframes fsEndIn {
   0%   { transform: scale(0.6) rotate(-3deg); opacity: 0; }
@@ -2383,8 +2510,9 @@ button:active img {
 .fs-end-panel > :not(.fs-end-rays) { position: relative; z-index: 1; }
 
 .fs-end-title {
-  font-size: 36px;
-  letter-spacing: 0.18em;
+  font-size: 30px;
+  line-height: 1.15;
+  letter-spacing: 0.14em;
   font-weight: 800;
   text-transform: uppercase;
   background: linear-gradient(180deg, #ffe8a1, #ff9b30 60%, #b54a0e);
@@ -2393,15 +2521,16 @@ button:active img {
   -webkit-text-fill-color: transparent;
   filter: drop-shadow(0 4px 14px rgba(255, 140, 40, 0.7));
   margin-bottom: 14px;
+  white-space: nowrap;
 }
 .fs-end-subtitle {
-  font-size: 14px;
+  font-size: 13px;
   letter-spacing: 0.32em;
   color: #c79b54;
   margin-bottom: 8px;
 }
 .fs-end-amount {
-  font-size: 72px;
+  font-size: 60px;
   font-weight: 900;
   letter-spacing: 0.02em;
   font-variant-numeric: tabular-nums;
@@ -2410,20 +2539,21 @@ button:active img {
     0 0 14px rgba(255, 200, 80, 0.85),
     0 0 28px rgba(255, 160, 40, 0.65),
     0 4px 10px rgba(0, 0, 0, 0.75);
-  line-height: 1;
+  line-height: 1.05;
   margin-bottom: 4px;
+  word-break: break-all;
 }
 .fs-end-currency {
-  font-size: 22px;
-  letter-spacing: 0.30em;
+  font-size: 20px;
+  letter-spacing: 0.28em;
   color: #ffe8a1;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 .fs-end-mult {
-  font-size: 18px;
-  letter-spacing: 0.16em;
+  font-size: 17px;
+  letter-spacing: 0.14em;
   color: #ffd966;
-  margin-bottom: 26px;
+  margin-bottom: 22px;
   opacity: 0.9;
 }
 .fs-end-hint {
@@ -2438,12 +2568,12 @@ button:active img {
 }
 
 /* Tier overrides — title text + glow scale with payout magnitude. */
-.fs-end-panel.tier-big .fs-end-title    { font-size: 40px; }
-.fs-end-panel.tier-huge .fs-end-title   { font-size: 44px; background: linear-gradient(180deg, #ffe8a1, #ff5e2c 50%, #960c00); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.fs-end-panel.tier-big .fs-end-title    { font-size: 34px; }
+.fs-end-panel.tier-huge .fs-end-title   { font-size: 38px; background: linear-gradient(180deg, #ffe8a1, #ff5e2c 50%, #960c00); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
 .fs-end-panel.tier-huge                 { box-shadow: 0 24px 80px rgba(255, 80, 30, 0.7), 0 0 0 1px rgba(255, 220, 120, 0.55) inset, 0 0 160px rgba(255, 60, 30, 0.55); }
-.fs-end-panel.tier-epic .fs-end-title   { font-size: 48px; background: linear-gradient(180deg, #ffe8a1, #d6286b 50%, #4a0a55); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.fs-end-panel.tier-epic .fs-end-title   { font-size: 42px; background: linear-gradient(180deg, #ffe8a1, #d6286b 50%, #4a0a55); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
 .fs-end-panel.tier-epic                 { box-shadow: 0 24px 80px rgba(214, 40, 107, 0.75), 0 0 0 2px rgba(255, 220, 120, 0.7) inset, 0 0 200px rgba(180, 30, 200, 0.65); border-image: linear-gradient(135deg, #ffd966, #ff5e2c, #d6286b, #ffd966) 1; }
-.fs-end-panel.tier-legendary .fs-end-title { font-size: 56px; animation: legendaryHue 2s linear infinite; }
+.fs-end-panel.tier-legendary .fs-end-title { font-size: 48px; animation: legendaryHue 2s linear infinite; }
 .fs-end-panel.tier-legendary {
   border-image: linear-gradient(90deg, #ffd966, #ff5e2c, #d6286b, #5e2eb2, #2eb2d6, #ffd966) 1;
   box-shadow: 0 24px 100px rgba(255, 200, 80, 0.9), 0 0 0 3px rgba(255, 220, 120, 0.8) inset, 0 0 240px rgba(214, 40, 107, 0.7);
