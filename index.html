@@ -92,6 +92,10 @@
       <img class="slot-frame slot-frame-fs" src="assets/slot-frame-special-round-fixed.png" alt="" />
 
       <div class="reels" id="reels" aria-label="Slot reels"></div>
+      <!-- Overlay SVG drawn on top of the reels: chained glow lines that
+           snake through cluster cells during the highlight phase. Sizes
+           itself in JS to match the reels grid. -->
+      <svg id="clusterLinks" class="cluster-links" aria-hidden="true"></svg>
 
       <img class="fire-left" src="assets/fire-left.png" alt="" />
       <img class="fire-right" src="assets/fire-right.png" alt="" />

@@ -2126,3 +2126,89 @@ button:active img {
   85%  { transform: translate(-50%, -68%) scale(1.0);  opacity: 1; }
   100% { transform: translate(-50%, -110%) scale(0.85); opacity: 0; }
 }
+
+/* ---- Cluster connection links + tiered win labels ----------------------- */
+
+/* SVG overlay sits on top of the reels grid. Sized + positioned to exactly
+   match the .reels element via JS on resize. Lines snake through cluster
+   cells during the highlight phase, then fade as the cluster explodes. */
+.cluster-links {
+  position: absolute;
+  left: 709px;
+  top: 106px;
+  width: 502px;
+  height: 681px;
+  pointer-events: none;
+  z-index: 9;
+  overflow: visible;
+}
+.cluster-links .link-path {
+  fill: none;
+  stroke: url(#linkGradient);
+  stroke-width: 6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 8px rgba(255, 220, 110, 0.95))
+          drop-shadow(0 0 14px rgba(255, 180, 60, 0.7));
+  opacity: 0;
+  stroke-dasharray: 12 8;
+  animation: linkDraw 0.55s cubic-bezier(0.3, 0, 0.4, 1) forwards,
+             linkFlow 0.9s linear 0.55s infinite;
+}
+.cluster-links .link-path.tier-big   { stroke-width: 7;  filter: drop-shadow(0 0 10px rgba(255, 180, 60, 1)) drop-shadow(0 0 18px rgba(255, 120, 30, 0.85)); }
+.cluster-links .link-path.tier-huge  { stroke-width: 8;  filter: drop-shadow(0 0 12px rgba(255, 120, 30, 1)) drop-shadow(0 0 22px rgba(255, 60, 30, 0.9));  }
+.cluster-links .link-path.tier-mega  { stroke-width: 9;  filter: drop-shadow(0 0 14px rgba(255, 80, 40, 1))  drop-shadow(0 0 28px rgba(255, 40, 200, 0.9)); }
+@keyframes linkDraw {
+  from { opacity: 0; stroke-dashoffset: 200; }
+  to   { opacity: 1; stroke-dashoffset: 0;   }
+}
+@keyframes linkFlow {
+  from { stroke-dashoffset: 0;   }
+  to   { stroke-dashoffset: -20; }
+}
+
+/* Tiered win labels — readable size + impact scaled to win magnitude. */
+.cluster-win-label.tier-small  { font-size: 20px; padding: 7px 12px; }
+.cluster-win-label.tier-medium { font-size: 24px; padding: 9px 16px; border-color: #ffc966; box-shadow: 0 8px 24px rgba(255, 200, 80, 0.7), 0 0 0 1px rgba(255, 220, 130, 0.55) inset; }
+.cluster-win-label.tier-big    {
+  font-size: 28px; padding: 12px 20px;
+  border-color: #ff9933; color: #fff;
+  background: linear-gradient(180deg, rgba(120, 50, 10, 0.95), rgba(60, 20, 4, 0.98));
+  box-shadow: 0 0 24px rgba(255, 140, 50, 0.85), 0 0 0 2px rgba(255, 200, 130, 0.7) inset;
+}
+.cluster-win-label.tier-big .cwl-amt { color: #ffd966; }
+.cluster-win-label.tier-huge   {
+  font-size: 34px; padding: 14px 24px;
+  border: 3px solid #ff5e2c; color: #fff;
+  background: linear-gradient(180deg, #b32a0e, #5a0f00);
+  box-shadow: 0 0 36px rgba(255, 100, 40, 1), 0 0 0 3px rgba(255, 220, 130, 0.8) inset;
+  letter-spacing: 0.06em;
+}
+.cluster-win-label.tier-huge::before { content: "BIG WIN "; color: #ffd966; font-size: 13px; letter-spacing: 0.18em; display: block; text-align: center; margin-bottom: 2px; }
+.cluster-win-label.tier-mega   {
+  font-size: 42px; padding: 18px 30px;
+  border: 3px solid;
+  border-image: linear-gradient(90deg, #ff5e2c, #ffd966, #ff5e2c, #b332a8, #ff5e2c) 1;
+  color: #fff;
+  background: linear-gradient(180deg, #2a0830, #500a1f);
+  box-shadow: 0 0 50px rgba(255, 80, 200, 0.95), 0 0 0 3px rgba(255, 220, 130, 0.9) inset;
+  letter-spacing: 0.08em;
+  animation: clusterWinPop 1400ms cubic-bezier(0.3, 1.6, 0.4, 1) forwards,
+             megaRainbow 1500ms linear infinite;
+}
+.cluster-win-label.tier-mega::before { content: "MEGA WIN "; font-size: 15px; letter-spacing: 0.22em; display: block; text-align: center; margin-bottom: 4px;
+  background: linear-gradient(90deg, #ffd966, #ff5e2c, #ffd966); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+@keyframes megaRainbow {
+  0%, 100% { filter: hue-rotate(0deg);   }
+  50%      { filter: hue-rotate(40deg);  }
+}
+
+/* Big-win screen shake — used on tier-huge+ clusters. */
+@keyframes stageShake {
+  0%, 100% { transform: translate(0, 0); }
+  20% { transform: translate(-6px, 3px); }
+  40% { transform: translate(5px, -4px); }
+  60% { transform: translate(-4px, 4px); }
+  80% { transform: translate(4px, -2px); }
+}
+#stage.shake { animation: stageShake 420ms cubic-bezier(0.3, 0, 0.4, 1); }

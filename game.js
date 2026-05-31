@@ -256,15 +256,15 @@
   // FS-share ~18% of RTP. Re-tune via `node sim.js tune` and copy the
   // printed final table back here.
   const PAY_TABLE = [
-    [1.936, 2.900, 4.836, 8.709, 14.518, 29.027, 48.382, 87.091],  // 0 jaguar
-    [1.209, 1.936, 3.391, 5.809,  9.673, 19.355, 33.864, 58.055],  // 1 feather
-    [0.727, 1.209, 2.182, 3.873,  6.773, 13.545, 23.227, 38.709],  // 2 red mask
-    [0.391, 0.582, 1.064, 1.936,  3.391,  6.773, 11.609, 19.355],  // 3 symbol04
-    [0.191, 0.291, 0.536, 0.964,  1.691,  3.391,  5.809,  9.673],  // 4 symbol05
-    [0.100, 0.145, 0.245, 0.391,  0.673,  1.355,  2.418,  4.109],  // 5 symbol06
-    [0.045, 0.073, 0.118, 0.191,  0.336,  0.673,  1.209,  2.182],  // 6 symbol07
-    [0.027, 0.045, 0.082, 0.145,  0.245,  0.482,  0.873,  1.455],  // 7 symbol08
-    [0.018, 0.027, 0.045, 0.100,  0.145,  0.291,  0.482,  0.873],  // 8 symbol09
+    [1.281, 1.776, 2.600, 3.845, 5.676,  8.423, 12.634, 19.044],  // 0 jaguar
+    [0.843, 1.171, 1.721, 2.564, 3.772,  5.676,  8.606, 13.184],  // 1 feather
+    [0.567, 0.787, 1.171, 1.758, 2.600,  3.955,  6.042,  9.522],  // 2 red mask
+    [0.348, 0.494, 0.733, 1.099, 1.611,  2.490,  3.845,  6.226],  // 3 symbol04
+    [0.212, 0.301, 0.440, 0.659, 0.970,  1.501,  2.344,  3.845],  // 4 symbol05
+    [0.131, 0.183, 0.271, 0.403, 0.604,  0.934,  1.465,  2.454],  // 5 symbol06
+    [0.081, 0.114, 0.168, 0.253, 0.374,  0.579,  0.916,  1.538],  // 6 symbol07
+    [0.052, 0.073, 0.110, 0.164, 0.241,  0.374,  0.594,  1.007],  // 7 symbol08
+    [0.033, 0.048, 0.070, 0.106, 0.154,  0.241,  0.384,  0.659],  // 8 symbol09
   ];
 
   function payForCluster(symIdx, size) {
@@ -965,8 +965,19 @@
 
   // Win amount flies from a cluster's centroid toward the recent-wins panel,
   // following a slight arc, then dissolves into the panel header.
+  // Classify a win-multiplier-of-bet into a visual tier (drives label size,
+  // glow, optional badge text, and screen shake).
+  function tierForWin(amount) {
+    const x = amount / Math.max(0.0001, state.bet);
+    if (x >= 100) return "mega";
+    if (x >= 20)  return "huge";
+    if (x >= 5)   return "big";
+    if (x >= 1)   return "medium";
+    return "small";
+  }
+
   // Pops a readable "x SYM +AMOUNT" badge at the cluster centroid during the
-  // highlight phase. Self-removes after the CSS animation ends (~1.1s).
+  // highlight phase. Self-removes after the CSS animation ends.
   function showClusterWinLabel(wi) {
     if (!wi || !wi.cells || !wi.cells.length) return;
     let cx = 0, cy = 0;
@@ -975,15 +986,100 @@
       cx += p.x; cy += p.y;
     }
     cx /= wi.cells.length; cy /= wi.cells.length;
+    const tier = tierForWin(wi.amount);
     const el = document.createElement("div");
-    el.className = "cluster-win-label";
+    el.className = `cluster-win-label tier-${tier}`;
     el.style.left = cx + "px";
     el.style.top  = cy + "px";
     el.innerHTML = `<span class="cwl-size">×${wi.size}</span><span class="cwl-amt">+${wi.amount.toFixed(2)}</span>`;
     stage.appendChild(el);
-    // Trigger animation next frame so the initial transform applies.
     requestAnimationFrame(() => el.classList.add("show"));
-    setTimeout(() => el.remove(), 1250);
+    const lifetime = (tier === "mega" || tier === "huge") ? 1600 : 1250;
+    setTimeout(() => el.remove(), lifetime);
+    // Bigger wins also shake the stage. Re-trigger animation on each call so
+    // multiple back-to-back huge clusters compound the shake.
+    if (tier === "huge" || tier === "mega") {
+      stage.classList.remove("shake");
+      void stage.offsetWidth;
+      stage.classList.add("shake");
+      setTimeout(() => stage.classList.remove("shake"), 450);
+    }
+  }
+
+  // ---- cluster connection SVG overlay --------------------------------------
+  // Snake a glowing path through every cluster cell to make it visually
+  // obvious WHICH symbols are connected. Lines fade as the cluster pops.
+  const clusterLinksSvg = document.getElementById("clusterLinks");
+  if (clusterLinksSvg) {
+    clusterLinksSvg.innerHTML =
+      `<defs>
+         <linearGradient id="linkGradient" x1="0" y1="0" x2="1" y2="1">
+           <stop offset="0"   stop-color="#fff5b0"/>
+           <stop offset="0.5" stop-color="#ffc94d"/>
+           <stop offset="1"   stop-color="#ff7a1f"/>
+         </linearGradient>
+       </defs>`;
+  }
+
+  // Compute (x, y) of a cell's center in SVG-overlay coordinates (which match
+  // the .reels box exactly, since the overlay is positioned/sized identically).
+  function cellCenterInReels(r, c) {
+    const cellRect = cellAt(r, c).getBoundingClientRect();
+    const reelRect = reelsEl.getBoundingClientRect();
+    const scaleX = clusterLinksSvg ? (clusterLinksSvg.clientWidth  / reelRect.width)  : 1;
+    const scaleY = clusterLinksSvg ? (clusterLinksSvg.clientHeight / reelRect.height) : 1;
+    return {
+      x: (cellRect.left + cellRect.width / 2  - reelRect.left) * scaleX,
+      y: (cellRect.top  + cellRect.height / 2 - reelRect.top ) * scaleY,
+    };
+  }
+
+  // Order cluster cells so the path doesn't crisscross: greedy nearest-neighbor
+  // starting from the top-left cell. Adjacent cells stay adjacent in the path.
+  function orderClusterCells(cells) {
+    if (!cells.length) return [];
+    const pool = cells.map((c) => [...c]);
+    pool.sort((a, b) => (a[0] - b[0]) || (a[1] - b[1]));
+    const ordered = [pool.shift()];
+    while (pool.length) {
+      const [lr, lc] = ordered[ordered.length - 1];
+      let bestIdx = 0, bestD = Infinity;
+      for (let i = 0; i < pool.length; i++) {
+        const [r, c] = pool[i];
+        const d = Math.abs(r - lr) + Math.abs(c - lc);
+        if (d < bestD) { bestD = d; bestIdx = i; }
+      }
+      ordered.push(pool.splice(bestIdx, 1)[0]);
+    }
+    return ordered;
+  }
+
+  function drawClusterLinks(winInfo) {
+    if (!clusterLinksSvg || !winInfo) return [];
+    const paths = [];
+    for (const wi of winInfo) {
+      if (!wi.cells || wi.cells.length < 2) continue;
+      const tier = tierForWin(wi.amount);
+      const tierClass = (tier === "mega") ? "tier-mega"
+                       : (tier === "huge") ? "tier-huge"
+                       : (tier === "big")  ? "tier-big"  : "";
+      const ordered = orderClusterCells(wi.cells);
+      const points = ordered.map(([r, c]) => cellCenterInReels(r, c));
+      let d = `M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`;
+      for (let i = 1; i < points.length; i++) {
+        d += ` L ${points[i].x.toFixed(1)} ${points[i].y.toFixed(1)}`;
+      }
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      path.setAttribute("class", `link-path ${tierClass}`);
+      path.setAttribute("d", d);
+      clusterLinksSvg.appendChild(path);
+      paths.push(path);
+    }
+    return paths;
+  }
+  function clearClusterLinks(paths) {
+    if (!paths) return;
+    for (const p of paths) p.remove();
   }
 
   function flyWinToPanel(cells, symIdx, amount) {
@@ -1142,15 +1238,18 @@
   // `winInfo` is an array of { cells, symIdx, size, payMult, amount } — one
   // entry per winning cluster from this cascade step.
   async function animateMatched(cells, winInfo, isWild = false) {
-    // Phase 1: highlight + show a centroid label per cluster so the player
-    // can read "what symbol, how many, how much" before the cells explode.
+    // Phase 1: highlight + draw connection links + show centroid labels.
+    // The player can read "what symbol, how many, how much" AND see exactly
+    // which cells are connected before they explode.
     for (const [r, c] of cells) {
       cellAt(r, c).classList.add("in-cluster");
     }
+    const links = drawClusterLinks(winInfo);
     if (winInfo) for (const wi of winInfo) showClusterWinLabel(wi);
-    await ffWait(750);
+    await ffWait(800);
 
-    // Phase 2: explode
+    // Phase 2: explode — fade out the connection lines as the cells go off.
+    clearClusterLinks(links);
     for (const [r, c] of cells) {
       const cell = cellAt(r, c);
       cell.classList.remove("in-cluster");
