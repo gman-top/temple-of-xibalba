@@ -256,15 +256,15 @@
   // FS-share ~18% of RTP. Re-tune via `node sim.js tune` and copy the
   // printed final table back here.
   const PAY_TABLE = [
-    [1.281, 1.776, 2.600, 3.845, 5.676,  8.423, 12.634, 19.044],  // 0 jaguar
-    [0.843, 1.171, 1.721, 2.564, 3.772,  5.676,  8.606, 13.184],  // 1 feather
-    [0.567, 0.787, 1.171, 1.758, 2.600,  3.955,  6.042,  9.522],  // 2 red mask
-    [0.348, 0.494, 0.733, 1.099, 1.611,  2.490,  3.845,  6.226],  // 3 symbol04
-    [0.212, 0.301, 0.440, 0.659, 0.970,  1.501,  2.344,  3.845],  // 4 symbol05
-    [0.131, 0.183, 0.271, 0.403, 0.604,  0.934,  1.465,  2.454],  // 5 symbol06
-    [0.081, 0.114, 0.168, 0.253, 0.374,  0.579,  0.916,  1.538],  // 6 symbol07
-    [0.052, 0.073, 0.110, 0.164, 0.241,  0.374,  0.594,  1.007],  // 7 symbol08
-    [0.033, 0.048, 0.070, 0.106, 0.154,  0.241,  0.384,  0.659],  // 8 symbol09
+    [1.242, 1.722, 2.521, 3.728, 5.503,  8.166, 12.249, 18.464],  // 0 jaguar
+    [0.817, 1.135, 1.669, 2.486, 3.657,  5.503,  8.344, 12.782],  // 1 feather
+    [0.550, 0.763, 1.135, 1.704, 2.521,  3.835,  5.858,  9.232],  // 2 red mask
+    [0.337, 0.479, 0.711, 1.066, 1.562,  2.414,  3.728,  6.036],  // 3 symbol04
+    [0.206, 0.292, 0.427, 0.639, 0.940,  1.455,  2.273,  3.728],  // 4 symbol05
+    [0.127, 0.177, 0.263, 0.391, 0.586,  0.906,  1.420,  2.379],  // 5 symbol06
+    [0.079, 0.111, 0.163, 0.245, 0.363,  0.561,  0.888,  1.491],  // 6 symbol07
+    [0.050, 0.071, 0.107, 0.159, 0.234,  0.363,  0.576,  0.976],  // 7 symbol08
+    [0.032, 0.047, 0.068, 0.103, 0.149,  0.234,  0.372,  0.639],  // 8 symbol09
   ];
 
   function payForCluster(symIdx, size) {
@@ -1522,13 +1522,13 @@
         }
         if (d.destroyers.length) {
           const killed = d.destroyerKilled || [];
+          // CRITICAL: destroyer phase always plays at FULL speed regardless
+          // of fast-forward, because players were reporting that they could
+          // never tell what the destroyer did. With FF the entire 2.8s
+          // sequence used to compress to ~600ms — blink and miss.
+          const _wait = wait;  // bypass ffWait shortening for this phase
+
           // -------- PHASE 1: announce ----------------------------------
-          //   The destroyer cell pulses + grows. A big centered banner pops
-          //   up explaining "DESTROYER · clears N low symbols". A shockwave
-          //   ring ripples from the destroyer. Stage shakes for impact.
-          //   The player gets ~1s to read what is happening BEFORE anything
-          //   is removed — vs. the old version where everything flashed by
-          //   in 400ms and the player learned nothing.
           for (const [r, c] of d.destroyers) {
             const cell = cellAt(r, c);
             cell.classList.add("destroyer-active");
@@ -1542,32 +1542,23 @@
             wrap.classList.add("shake");
             setTimeout(() => wrap.classList.remove("shake"), 450);
           }
-          await ffWait(1000);
+          await _wait(1100);
 
           // -------- PHASE 2: mark the targets --------------------------
-          //   Every doomed cell gets a pulsing red overlay BEFORE it dies.
-          //   Lightning arcs are drawn from the destroyer to each victim
-          //   so the cause-effect is obvious: "this is what the destroyer
-          //   is reaching out to kill". Holds for ~700ms so the player
-          //   can see which symbols are being targeted.
-          for (const [r, c] of killed) {
-            cellAt(r, c).classList.add("destroyer-target");
+          for (const [r, c] of killed) cellAt(r, c).classList.add("destroyer-target");
+          if (killed.length && d.destroyers.length) {
+            drawDestroyerArcs(d.destroyers[0], killed);
           }
-          const arcInfo = (killed.length && d.destroyers.length)
-            ? drawDestroyerArcs(d.destroyers[0], killed)
-            : null;
-          await ffWait(800);
+          await _wait(900);
 
           // -------- PHASE 3: destruction --------------------------------
-          //   Targets dissolve (shake + flare + scale-out, 0.7s). Sparks
-          //   add violent grit. Arcs fade off.
           for (const [r, c] of killed) {
             const cell = cellAt(r, c);
             cell.classList.remove("destroyer-target");
             cell.classList.add("destroying");
             emitSparks(cell, 12, "red");
           }
-          await ffWait(700);
+          await _wait(750);
 
           // -------- PHASE 4: cleanup -----------------------------------
           for (const [r, c] of killed) {
@@ -1580,7 +1571,7 @@
           }
           clearDestroyerArcs();
           paintAll();
-          await ffWait(280);
+          await _wait(300);
         }
       }
 
