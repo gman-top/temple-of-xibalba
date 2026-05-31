@@ -965,6 +965,27 @@
 
   // Win amount flies from a cluster's centroid toward the recent-wins panel,
   // following a slight arc, then dissolves into the panel header.
+  // Pops a readable "x SYM +AMOUNT" badge at the cluster centroid during the
+  // highlight phase. Self-removes after the CSS animation ends (~1.1s).
+  function showClusterWinLabel(wi) {
+    if (!wi || !wi.cells || !wi.cells.length) return;
+    let cx = 0, cy = 0;
+    for (const [r, c] of wi.cells) {
+      const p = stageCoords(cellAt(r, c).getBoundingClientRect());
+      cx += p.x; cy += p.y;
+    }
+    cx /= wi.cells.length; cy /= wi.cells.length;
+    const el = document.createElement("div");
+    el.className = "cluster-win-label";
+    el.style.left = cx + "px";
+    el.style.top  = cy + "px";
+    el.innerHTML = `<span class="cwl-size">×${wi.size}</span><span class="cwl-amt">+${wi.amount.toFixed(2)}</span>`;
+    stage.appendChild(el);
+    // Trigger animation next frame so the initial transform applies.
+    requestAnimationFrame(() => el.classList.add("show"));
+    setTimeout(() => el.remove(), 1250);
+  }
+
   function flyWinToPanel(cells, symIdx, amount) {
     // Centroid of cluster cells
     let cx = 0, cy = 0;
@@ -1121,13 +1142,15 @@
   // `winInfo` is an array of { cells, symIdx, size, payMult, amount } — one
   // entry per winning cluster from this cascade step.
   async function animateMatched(cells, winInfo, isWild = false) {
-    // Phase 1: highlight
+    // Phase 1: highlight + show a centroid label per cluster so the player
+    // can read "what symbol, how many, how much" before the cells explode.
     for (const [r, c] of cells) {
       cellAt(r, c).classList.add("in-cluster");
     }
-    await ffWait(380);
+    if (winInfo) for (const wi of winInfo) showClusterWinLabel(wi);
+    await ffWait(750);
 
-    // Phase 2: explode + fly-out
+    // Phase 2: explode
     for (const [r, c] of cells) {
       const cell = cellAt(r, c);
       cell.classList.remove("in-cluster");
@@ -1135,21 +1158,20 @@
       emitSparks(cell, isWild ? 12 : 8);
     }
 
-    // Trigger fly-outs (in parallel) for each cluster
+    // Fly-out to the totem panel — delayed so it doesn't overlap the centroid
+    // label that's still on screen.
     if (winInfo) {
-      for (const wi of winInfo) {
-        flyWinToPanel(wi.cells, wi.symIdx, wi.amount);
-      }
-      // Add to panel after fly-out has covered most of the arc
-      const updateDelay = state.fastForward ? 200 : 600;
+      const flyDelay = state.fastForward ? 0 : 250;
       setTimeout(() => {
-        for (const wi of winInfo) {
-          addRecentWin(wi.symIdx, wi.size, wi.payMult, wi.amount);
-        }
+        for (const wi of winInfo) flyWinToPanel(wi.cells, wi.symIdx, wi.amount);
+      }, flyDelay);
+      const updateDelay = state.fastForward ? 200 : 850;
+      setTimeout(() => {
+        for (const wi of winInfo) addRecentWin(wi.symIdx, wi.size, wi.payMult, wi.amount);
       }, updateDelay);
     }
 
-    await ffWait(420);
+    await ffWait(580);
 
     // Phase 3: clear regs; wilds stay sticky
     for (const [r, c] of cells) {
@@ -1261,39 +1283,85 @@
   // Drives the same animation pipeline as the local-RNG path but the
   // cells/clusters/dig-up positions all come from the server-signed
   // outcome — no client RNG, fully auditable.
-  async function replayBaseSpin(base, effectiveBet) {
-    state.cellMult = makeEmptyGrid(false);
+  async function replayBaseSpin(base, effectiveBet, { resetMult = true } = {}) {
+    if (resetMult) state.cellMult = makeEmptyGrid(false);
     await animateSpinIn(unboxGrid(base.initialGrid));
     state.grid = unboxGrid(base.initialGrid);
 
     for (const step of base.cascades) {
       playSfx("spinLand");
       playSfx("clusterPop");
-      const allCells = [];
+      const clusterCells = [];
       const winInfo = [];
       for (const cl of step.clusters) {
         const payMult = +(cl.win / effectiveBet).toFixed(2);
         winInfo.push({ cells: cl.cells, symIdx: cl.symIdx, size: cl.size, payMult, amount: cl.win });
-        allCells.push(...cl.cells);
+        clusterCells.push(...cl.cells);
       }
       state.totalSpinWin += step.stepWin;
       state.lastWin = state.totalSpinWin;
       refreshHUD();
 
-      await animateMatched(allCells, winInfo);
-      state.grid = unboxGrid(step.gridAfter);
-      state.cellMult = cloneMultGrid(step.multAfter);
+      await animateMatched(clusterCells, winInfo);
 
-      // Show dig-up bursts on cells the server picked.
-      if (step.dig) {
-        if (step.dig.wilds.length)    playSfx("wildDig");
-        if (step.dig.scatters.length) playSfx("scatter");
-        for (const arr of [step.dig.wilds, step.dig.boosters, step.dig.destroyers, step.dig.scatters]) {
+      // Clear every cluster cell (incl. wilds that participated — the engine
+      // removes them too). Sync our local grid to the engine's mid-step state.
+      for (const [r, c] of clusterCells) {
+        state.grid[r][c] = null;
+        const cell = cellAt(r, c);
+        cell.classList.remove("wild");
+        const sym = cell.querySelector(".symbol");
+        if (sym) sym.style.opacity = "0";
+      }
+      paintAll();
+
+      // ---- DIG-UP REPLAY ----------------------------------------------------
+      // Recreate what the engine produced: place each special on its cell,
+      // then sequentially show booster/destroyer effects before refilling.
+      const d = step.dig || { wilds:[], boosters:[], destroyers:[], scatters:[], destroyerKilled:[] };
+      const hasAny = d.wilds.length || d.boosters.length || d.destroyers.length || d.scatters.length;
+      if (hasAny) {
+        if (d.wilds.length)    playSfx("wildDig");
+        if (d.scatters.length) playSfx("scatter");
+        for (const [r, c] of d.wilds) {
+          state.grid[r][c] = { t: "wild", m: state.cellMult[r][c] >= 2 ? 100 : 10 };
+        }
+        for (const [r, c] of d.boosters)   state.grid[r][c] = { t: "booster" };
+        for (const [r, c] of d.destroyers) state.grid[r][c] = { t: "destroyer" };
+        for (const [r, c] of d.scatters)   state.grid[r][c] = { t: "scatter" };
+        paintAll();
+        for (const arr of [d.wilds, d.boosters, d.destroyers, d.scatters]) {
           for (const [r, c] of arr) digBurst(cellAt(r, c));
         }
+        await ffWait(520);
+
+        if (d.boosters.length) {
+          for (const [r, c] of d.boosters) {
+            emitSparks(cellAt(r, c), 8, "green");
+            state.grid[r][c] = null;
+          }
+          await ffWait(420);
+          paintAll();
+        }
+        if (d.destroyers.length) {
+          for (const [r, c] of (d.destroyerKilled || [])) {
+            emitSparks(cellAt(r, c), 5, "red");
+          }
+          await ffWait(420);
+          for (const [r, c] of (d.destroyerKilled || [])) state.grid[r][c] = null;
+          for (const [r, c] of d.destroyers)             state.grid[r][c] = null;
+          paintAll();
+          await ffWait(200);
+        }
       }
-      await animateCascade();
+
+      // Cascade refill: snap to engine's gridAfter + run dropIn animation.
+      state.grid = unboxGrid(step.gridAfter);
+      state.cellMult = cloneMultGrid(step.multAfter);
+      for (const cell of allCells()) cell.classList.add("dropping");
       paintAll();
+      await ffWait(420);
+      for (const cell of allCells()) cell.classList.remove("dropping");
     }
   }
 
@@ -1319,26 +1387,50 @@
 
     // Open-cascade once on prepared grid (wilds may have lined up).
     for (const step of fs.openCascades) {
-      const allCells = [];
+      const clusterCells = [];
       const winInfo = [];
       for (const cl of step.clusters) {
         const payMult = +(cl.win / effectiveBet).toFixed(2);
         winInfo.push({ cells: cl.cells, symIdx: cl.symIdx, size: cl.size, payMult, amount: cl.win });
-        allCells.push(...cl.cells);
+        clusterCells.push(...cl.cells);
       }
       state.freeSpinsWin += step.stepWin;
       refreshFSBanner(); refreshBonusActive();
-      await animateMatched(allCells, winInfo);
+      await animateMatched(clusterCells, winInfo);
+      for (const [r, c] of clusterCells) {
+        state.grid[r][c] = null;
+        cellAt(r, c).classList.remove("wild");
+      }
+      paintAll();
+      // Open-cascade dig-up replay (boosters / destroyers visible).
+      const d = step.dig || { wilds:[], boosters:[], destroyers:[], scatters:[], destroyerKilled:[] };
+      if (d.wilds.length || d.boosters.length || d.destroyers.length || d.scatters.length) {
+        for (const [r, c] of d.wilds)      state.grid[r][c] = { t: "wild", m: state.cellMult[r][c] >= 2 ? 100 : 10 };
+        for (const [r, c] of d.boosters)   state.grid[r][c] = { t: "booster" };
+        for (const [r, c] of d.destroyers) state.grid[r][c] = { t: "destroyer" };
+        for (const [r, c] of d.scatters)   state.grid[r][c] = { t: "scatter" };
+        paintAll();
+        for (const arr of [d.wilds, d.boosters, d.destroyers, d.scatters]) {
+          for (const [r, c] of arr) digBurst(cellAt(r, c));
+        }
+        await ffWait(520);
+        if (d.destroyers.length) {
+          for (const [r, c] of (d.destroyerKilled || [])) emitSparks(cellAt(r, c), 5, "red");
+          await ffWait(420);
+        }
+      }
       state.grid = unboxGrid(step.gridAfter);
       state.cellMult = cloneMultGrid(step.multAfter);
-      await animateCascade();
+      for (const cell of allCells()) cell.classList.add("dropping");
       paintAll();
+      await ffWait(420);
+      for (const cell of allCells()) cell.classList.remove("dropping");
     }
 
     // Run each FS spin.
     for (const spin of fs.fsSpins) {
-      await ffWait(400);
-      await replayBaseSpin({ initialGrid: spin.initialGrid, cascades: spin.cascades }, effectiveBet);
+      await ffWait(900);
+      await replayBaseSpin({ initialGrid: spin.initialGrid, cascades: spin.cascades }, effectiveBet, { resetMult: false });
       state.freeSpinsWin += spin.totalWin;
       state.freeSpinsLeft--;
       refreshFSBanner(); refreshBonusActive();
