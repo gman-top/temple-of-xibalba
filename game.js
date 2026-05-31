@@ -310,10 +310,10 @@
   // Higher tiers pay proportional to their guaranteed-wild boost (each
   // forced wild ~doubles the round's EV).
   const BUY_OPTIONS = [
-    { label: "REGULAR",            sublabel: "",                  cost:  20,  wilds: 0 },
-    { label: "1 WILD",             sublabel: "GUARANTEED",        cost:  40,  wilds: 1 },
-    { label: "2 WILDS",            sublabel: "GUARANTEED",        cost:  80,  wilds: 2 },
-    { label: "ALL SCATTERS",       sublabel: "TURN WILDS",        cost: 200,  wilds: 3, allWilds: true },
+    { label: "REGULAR",            sublabel: "",                  cost:  43,  wilds: 0 },
+    { label: "1 WILD",             sublabel: "+2 FS · WILD ×15",  cost:  53,  wilds: 1 },
+    { label: "2 WILDS",            sublabel: "+5 FS · WILD ×25",  cost:  69,  wilds: 2 },
+    { label: "ALL SCATTERS",       sublabel: "+8 FS · WILD ×30",  cost:  92,  wilds: 3, allWilds: true },
   ];
 
   // ---- cell types -----------------------------------------------------------
@@ -1478,12 +1478,17 @@
     stage.classList.add("fs-active");
     if (window.__xibalbaAudio) window.__xibalbaAudio.startBgm("fs");
 
-    // Convert scatters per the engine's deterministic plan.
+    // Convert scatters + plant bonus mult cells per the engine's deterministic plan.
+    // Engine sends explicit m/value so the visual matches the math (higher buy
+    // tiers have higher-m wilds + extra ×N mult cells on random non-scatter cells).
     for (const conv of fs.conversion) {
-      const cell = state.grid[conv.r];
-      if (!cell) continue;
-      if (conv.to === "wild") state.grid[conv.r][conv.c] = { t: "wild", m: 10 };
-      else { state.grid[conv.r][conv.c] = null; state.cellMult[conv.r][conv.c] = 10; }
+      if (!state.grid[conv.r]) continue;
+      if (conv.to === "wild") {
+        state.grid[conv.r][conv.c] = { t: "wild", m: conv.m || 10 };
+      } else if (conv.to === "mult") {
+        state.grid[conv.r][conv.c] = null;
+        state.cellMult[conv.r][conv.c] = conv.value || 10;
+      }
     }
     paintAll();
     playSfx("fsTrigger");

@@ -51,11 +51,21 @@ const MAX_WIN_X = 10000;
 
 const BET_LEVELS = [0.20, 0.50, 1.00, 2.00, 5.00, 10.00, 25.00, 50.00];
 
+// Buy Bonus tiers. Each tier has progressively bigger boosts so the cost
+// scaling is justified — without these boosts every option pays roughly the
+// same (~40× bet) and the cheap tier becomes a guaranteed-profit arbitrage.
+// Costs are calibrated so every option's RTP lands ≤ 96.96%. Re-run
+// `node buy-bonus-probe.js` after tweaking any field below to verify.
+//
+//   wilds         — forced wild conversions at scatter positions (rest go to ×10 mult cells).
+//   startingWildM — multiplier on those forced wilds (and on the all-wild flood for ALL SCATTERS).
+//   bonusFsSpins  — extra FS spins added on top of the scatter-count award.
+//   bonusMultCells — starting ×N cell multipliers planted on random non-scatter cells.
 const BUY_OPTIONS = [
-  { idx: 0, label: "REGULAR",      cost:  20, wilds: 0 },
-  { idx: 1, label: "1 WILD",       cost:  40, wilds: 1 },
-  { idx: 2, label: "2 WILDS",      cost:  80, wilds: 2 },
-  { idx: 3, label: "ALL SCATTERS", cost: 200, wilds: 3, allWilds: true },
+  { idx: 0, label: "REGULAR",      cost:  43,  wilds: 0, startingWildM: 10, bonusFsSpins: 0,  bonusMultCells: { count: 0, mult: 0 } },
+  { idx: 1, label: "1 WILD",       cost:  53,  wilds: 1, startingWildM: 15, bonusFsSpins: 2,  bonusMultCells: { count: 0, mult: 0 } },
+  { idx: 2, label: "2 WILDS",      cost:  69,  wilds: 2, startingWildM: 25, bonusFsSpins: 5,  bonusMultCells: { count: 2, mult: 4 } },
+  { idx: 3, label: "ALL SCATTERS", cost:  92,  wilds: 3, startingWildM: 30, bonusFsSpins: 8,  bonusMultCells: { count: 3, mult: 4 }, allWilds: true },
 ];
 
 const TY = { REG: 0, SCAT: 1, WILD: 2, BOOST: 3, DEST: 4 };
@@ -318,8 +328,27 @@ function runOneSpin({ bet, inFs, cellMult, forceWildsAtStart = 0, startGrid = nu
 // FS round: takes the post-spin grid (with scatters) + persistent cellMult
 // (which may already carry multipliers from base game). Returns total FS win
 // + array of per-spin outcomes for client replay.
-function runFreeSpinsRound({ bet, scatterCount, initialGrid, forceAllScatterToWild = false, forcedWilds = 0, rng }) {
-  const award = FS_AWARDS[Math.min(scatterCount, 6)] || 0;
+// Free-spins entry. Used by:
+//   - organic trigger (3+ scatters from base spin): forcedWilds=0,
+//     forceAllScatterToWild=false, deterministicConversion=false
+//     → 50/50 random per-scatter conversion (legacy behaviour).
+//   - buy-bonus action: forcedWilds=N, deterministicConversion=true
+//     → exactly N scatters become wild, the rest become ×10 mult cells.
+//       No randomness in the conversion, so option-N pays meaningfully
+//       differently from option-N+1 (a wild is much stronger than a
+//       passive mult cell in chain reactions).
+function runFreeSpinsRound({
+  bet, scatterCount, initialGrid,
+  forceAllScatterToWild = false,
+  forcedWilds = 0,
+  deterministicConversion = false,
+  startingWildM = 10,
+  bonusFsSpins = 0,
+  bonusMultCells = null,
+  rng,
+}) {
+  const baseAward = FS_AWARDS[Math.min(scatterCount, 6)] || 0;
+  const award = baseAward + bonusFsSpins;
   const cellMult = makeEmptyMultGrid();
   const grid = cloneGrid(initialGrid);
 
@@ -332,14 +361,40 @@ function runFreeSpinsRound({ bet, scatterCount, initialGrid, forceAllScatterToWi
   const conversion = [];
   let forcedConverted = 0;
   for (const [r, c] of scatterCells) {
-    if (forceAllScatterToWild || forcedConverted < forcedWilds || rng() < 0.5) {
-      grid[r][c] = { t: TY.WILD, m: 10 };
+    const shouldBeWild =
+      forceAllScatterToWild
+      || forcedConverted < forcedWilds
+      || (!deterministicConversion && rng() < 0.5);
+    if (shouldBeWild) {
+      grid[r][c] = { t: TY.WILD, m: startingWildM };
       forcedConverted++;
-      conversion.push({ r, c, to: "wild" });
+      conversion.push({ r, c, to: "wild", m: startingWildM });
     } else {
       grid[r][c] = null;
       cellMult[r][c] = 10;
-      conversion.push({ r, c, to: "mult10" });
+      conversion.push({ r, c, to: "mult", value: 10 });
+    }
+  }
+
+  // Buy Bonus higher tiers also pre-seed extra ×N cell multipliers on random
+  // non-scatter cells. The player sees these "lit up" cells before the open
+  // cascade — they make the higher-cost tiers visibly more powerful.
+  if (bonusMultCells && bonusMultCells.count > 0 && bonusMultCells.mult > 0) {
+    const candidates = [];
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        if (cellMult[r][c] === 0 && !(grid[r][c] && grid[r][c].t === TY.WILD)) candidates.push([r, c]);
+      }
+    }
+    for (let i = candidates.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+    }
+    const n = Math.min(bonusMultCells.count, candidates.length);
+    for (let i = 0; i < n; i++) {
+      const [r, c] = candidates[i];
+      cellMult[r][c] = bonusMultCells.mult;
+      conversion.push({ r, c, to: "mult", value: bonusMultCells.mult });
     }
   }
 
@@ -427,11 +482,20 @@ function runFullSpin({ state, action, rng }) {
   let scatterCellsAtTrigger = [];
 
   if (action === "buy_bonus") {
-    // Buy bonus skips the base spin: directly land 3-6 scatters and trigger FS
+    // Buy bonus skips the base spin and lands 3-6 scatters directly.
+    //
+    // Scatter-count distribution is skewed toward 3 so it mirrors an organic
+    // trigger (where 3 scatters dominate by far). A uniform 3-6 used to be
+    // ~50% more generous in expectation than organic FS, which made
+    // REGULAR's 20× cost an arbitrage paying 277% RTP.
+    //   3 scatters : 70%
+    //   4          : 18%
+    //   5          :  8%
+    //   6          :  4%
     cost = buyOpt.cost * bet;
     const grid = randomGrid(rng);
-    // Choose scatter cells: 3-6 from a uniform random per-column pick
-    const scatterCount = 3 + Math.floor(rng() * 4); // 3..6
+    const sRoll = rng();
+    const scatterCount = sRoll < 0.70 ? 3 : sRoll < 0.88 ? 4 : sRoll < 0.96 ? 5 : 6;
     initialFsScatters = scatterCount;
     const positions = [];
     const cols = [0, 1, 2, 3, 4];
@@ -449,7 +513,16 @@ function runFullSpin({ state, action, rng }) {
     const fs = runFreeSpinsRound({
       bet, scatterCount, initialGrid: grid,
       forceAllScatterToWild: !!buyOpt.allWilds,
-      forcedWilds: buyOpt.wilds, rng,
+      forcedWilds: buyOpt.wilds,
+      // Deterministic conversion: exactly forcedWilds scatters become wild,
+      // the rest become ×10 multiplier cells. This makes the four buy
+      // tiers behave meaningfully differently (otherwise the legacy 50/50
+      // randomness produced ~the same wild count for every tier).
+      deterministicConversion: true,
+      startingWildM: buyOpt.startingWildM,
+      bonusFsSpins: buyOpt.bonusFsSpins,
+      bonusMultCells: buyOpt.bonusMultCells,
+      rng,
     });
     return {
       newState: { balance: +(state.balance - cost + fs.fsWin).toFixed(2) },
