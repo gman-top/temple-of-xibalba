@@ -549,7 +549,7 @@ function runFullSpin({ state, action, rng }) {
     fs = runFreeSpinsRound({ bet: effectiveBet, scatterCount: r.scatters, initialGrid: r.grid, rng });
     totalWin += fs.fsWin;
   }
-  if (totalWin > MAX_WIN_X * effectiveBet) totalWin = MAX_WIN_X * effectiveBet;
+  if (totalWin >= MAX_WIN_X * effectiveBet) totalWin = MAX_WIN_X * effectiveBet;
 
   return {
     newState: { balance: +(state.balance - cost + totalWin).toFixed(2) },
