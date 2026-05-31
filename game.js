@@ -1950,12 +1950,51 @@
     });
   }
 
-  // Menu button: placeholder for now — just plays the click SFX and could
-  // open a settings/credits modal in the future.
-  const btnMenu = document.getElementById("btnMenu");
-  if (btnMenu) {
-    btnMenu.addEventListener("click", () => { playSfx("click"); });
+  // Menu button → opens the Info / Paytable modal.
+  const btnMenu     = document.getElementById("btnMenu");
+  const infoModal   = document.getElementById("infoModal");
+  const infoClose   = document.getElementById("infoClose");
+  const infoPaytableBody = document.getElementById("infoPaytableBody");
+
+  function renderInfoPaytable() {
+    if (!infoPaytableBody) return;
+    // Headers row: cluster sizes 5..12+
+    const sizeLabels = ["5", "6", "7", "8", "9", "10", "11", "12+"];
+    const symLabels  = ["Jaguar", "Feather", "Mask", "Sym 04", "Sym 05", "Sym 06", "Sym 07", "Sym 08", "Sym 09"];
+    const tierClass  = ["top", "high", "high", "mid", "mid", "mid", "low", "low", "low"];
+
+    let html = `<div class="info-pt-head sym">Symbol</div>`;
+    for (const s of sizeLabels) html += `<div class="info-pt-head">${s}</div>`;
+    for (let i = 0; i < PAY_TABLE.length; i++) {
+      html += `<div class="info-pt-row ${tierClass[i]}">
+                 <div class="info-pt-sym" title="${symLabels[i]}"
+                      style="background-image:url('assets/${REG_ASSETS[i]}.png')"></div>
+               </div>`;
+      for (const v of PAY_TABLE[i]) {
+        html += `<div class="info-pt-cell ${tierClass[i]}">${v.toFixed(2)}×</div>`;
+      }
+    }
+    infoPaytableBody.innerHTML = html;
   }
+  renderInfoPaytable();
+
+  if (btnMenu && infoModal) {
+    btnMenu.addEventListener("click", () => { playSfx("click"); openModal(infoModal); });
+  }
+  if (infoClose) infoClose.addEventListener("click", () => { playSfx("click"); closeModal(infoModal); });
+  if (infoModal) infoModal.addEventListener("click", (e) => {
+    if (e.target === infoModal) closeModal(infoModal);
+  });
+  document.querySelectorAll(".info-tab").forEach((tab) => {
+    tab.addEventListener("click", () => {
+      const target = tab.dataset.tab;
+      document.querySelectorAll(".info-tab").forEach((t) => t.classList.toggle("active", t === tab));
+      document.querySelectorAll(".info-panel").forEach((p) => {
+        p.hidden = p.dataset.panel !== target;
+      });
+      playSfx("click");
+    });
+  });
 
   btnBuyBonus.addEventListener("click", () => {
     playSfx("click");

@@ -252,6 +252,53 @@
           </label>
         </div>
       </div>
+
+      <div class="modal-backdrop" id="infoModal" aria-hidden="true">
+        <div class="modal info-modal" role="dialog" aria-label="Game Info">
+          <button class="modal-close" id="infoClose" type="button" aria-label="Close">×</button>
+          <h2 class="modal-title">HOW TO WIN</h2>
+          <p class="modal-subtitle">Cluster Pays · 5×7 grid · max 10,000× bet</p>
+          <div class="info-tabs" role="tablist">
+            <button class="info-tab active" data-tab="paytable" type="button">Paytable</button>
+            <button class="info-tab"        data-tab="symbols"  type="button">Special Symbols</button>
+            <button class="info-tab"        data-tab="rules"    type="button">Rules</button>
+          </div>
+          <div class="info-panel" data-panel="paytable">
+            <p class="info-note">Cluster of <b>5+</b> matching symbols connected up/down/left/right. Values are multipliers × your bet.</p>
+            <div class="info-paytable" id="infoPaytableBody"></div>
+          </div>
+          <div class="info-panel" data-panel="symbols" hidden>
+            <div class="info-symbol-row">
+              <div class="info-sym-icon" style="background-image:url('assets/symbol-wild.png')"></div>
+              <div><b>WILD</b><span>Substitutes any regular symbol. Carries its own multiplier (10 → +10 per win, capped 100).</span></div>
+            </div>
+            <div class="info-symbol-row">
+              <div class="info-sym-icon" style="background-image:url('assets/symbol-scatter.png')"></div>
+              <div><b>SCATTER</b><span>3+ trigger Free Spins · 3 = 10 FS · 4 = 12 · 5 = 15 · 6 = 20. Retrigger inside FS awards 5 / 6 / 8 / 10 extra.</span></div>
+            </div>
+            <div class="info-symbol-row">
+              <div class="info-sym-icon" style="background-image:url('assets/symbol-booster.png')"></div>
+              <div><b>BOOSTER</b><span>+2 to every active cell multiplier on the grid (cell multipliers cap at 10).</span></div>
+            </div>
+            <div class="info-symbol-row">
+              <div class="info-sym-icon" style="background-image:url('assets/symbol-destroyer.png')"></div>
+              <div><b>DESTROYER</b><span>Removes all low-pay symbols (symbol06 → symbol09) from the grid, opening space for cascades.</span></div>
+            </div>
+          </div>
+          <div class="info-panel" data-panel="rules" hidden>
+            <ul class="info-rules">
+              <li><b>Cluster pays</b> — no lines. Win = 5+ matching symbols connected orthogonally.</li>
+              <li><b>Cascades</b> — winning cells explode; surviving symbols drop down; new symbols fill from the top. Chain continues until no new cluster forms.</li>
+              <li><b>Dig-up</b> — exploded cells have a chance to drop a Wild, Booster, Destroyer, or Scatter before refilling.</li>
+              <li><b>Cell multipliers</b> — each cell in a winning cluster earns a persistent multiplier (2 → 4 → 6 → … → 10) that adds to future clusters on that cell.</li>
+              <li><b>Free Spins</b> — open with all scatters converted: each becomes either a Wild (m=10) or leaves a ×10 cell multiplier. Cell multipliers persist across the round.</li>
+              <li><b>Buy Bonus</b> — pay 20× / 40× / 80× / 200× bet to jump straight into a Free Spins round.</li>
+              <li><b>Wild Spin</b> — pay 2× bet to guarantee at least one Wild in the spin.</li>
+              <li><b>Max win</b> — 10,000× bet caps every round.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
