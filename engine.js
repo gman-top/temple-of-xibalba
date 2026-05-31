@@ -61,11 +61,14 @@ const BET_LEVELS = [0.20, 0.50, 1.00, 2.00, 5.00, 10.00, 25.00, 50.00];
 //   startingWildM — multiplier on those forced wilds (and on the all-wild flood for ALL SCATTERS).
 //   bonusFsSpins  — extra FS spins added on top of the scatter-count award.
 //   bonusMultCells — starting ×N cell multipliers planted on random non-scatter cells.
+// Each option now delivers a DETERMINISTIC FS spin count: always 3 scatters
+// (10 base spins) + bonusFsSpins per tier. So the player knows exactly what
+// they're paying for: REGULAR=10 FS, 1 WILD=12, 2 WILDS=15, ALL SCATTERS=18.
 const BUY_OPTIONS = [
-  { idx: 0, label: "REGULAR",      cost:  43,  wilds: 0, startingWildM: 10, bonusFsSpins: 0,  bonusMultCells: { count: 0, mult: 0 } },
-  { idx: 1, label: "1 WILD",       cost:  53,  wilds: 1, startingWildM: 15, bonusFsSpins: 2,  bonusMultCells: { count: 0, mult: 0 } },
-  { idx: 2, label: "2 WILDS",      cost:  69,  wilds: 2, startingWildM: 25, bonusFsSpins: 5,  bonusMultCells: { count: 2, mult: 4 } },
-  { idx: 3, label: "ALL SCATTERS", cost:  92,  wilds: 3, startingWildM: 30, bonusFsSpins: 8,  bonusMultCells: { count: 3, mult: 4 }, allWilds: true },
+  { idx: 0, label: "REGULAR",      cost:  37,  wilds: 0, startingWildM: 10, bonusFsSpins: 0,  bonusMultCells: { count: 0, mult: 0 } },
+  { idx: 1, label: "1 WILD",       cost:  47,  wilds: 1, startingWildM: 15, bonusFsSpins: 2,  bonusMultCells: { count: 0, mult: 0 } },
+  { idx: 2, label: "2 WILDS",      cost:  63,  wilds: 2, startingWildM: 25, bonusFsSpins: 5,  bonusMultCells: { count: 2, mult: 4 } },
+  { idx: 3, label: "ALL SCATTERS", cost:  82,  wilds: 3, startingWildM: 30, bonusFsSpins: 8,  bonusMultCells: { count: 3, mult: 4 }, allWilds: true },
 ];
 
 const TY = { REG: 0, SCAT: 1, WILD: 2, BOOST: 3, DEST: 4 };
@@ -482,20 +485,17 @@ function runFullSpin({ state, action, rng }) {
   let scatterCellsAtTrigger = [];
 
   if (action === "buy_bonus") {
-    // Buy bonus skips the base spin and lands 3-6 scatters directly.
+    // Buy bonus skips the base spin and lands a FIXED 3 scatters.
     //
-    // Scatter-count distribution is skewed toward 3 so it mirrors an organic
-    // trigger (where 3 scatters dominate by far). A uniform 3-6 used to be
-    // ~50% more generous in expectation than organic FS, which made
-    // REGULAR's 20× cost an arbitrage paying 277% RTP.
-    //   3 scatters : 70%
-    //   4          : 18%
-    //   5          :  8%
-    //   6          :  4%
+    // Each tier therefore delivers a deterministic FS spin count
+    // (10 + bonusFsSpins) instead of the previous variable 10/12/15/20 that
+    // confused players: paying for ALL SCATTERS and getting 12 spins while
+    // a REGULAR neighbour got 15 felt unfair. The progressive boost across
+    // tiers (bigger wild multipliers, more bonus spins, pre-seeded mult
+    // cells) is what differentiates the cost — not random scatter luck.
     cost = buyOpt.cost * bet;
     const grid = randomGrid(rng);
-    const sRoll = rng();
-    const scatterCount = sRoll < 0.70 ? 3 : sRoll < 0.88 ? 4 : sRoll < 0.96 ? 5 : 6;
+    const scatterCount = 3;
     initialFsScatters = scatterCount;
     const positions = [];
     const cols = [0, 1, 2, 3, 4];

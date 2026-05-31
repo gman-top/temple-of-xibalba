@@ -310,10 +310,10 @@
   // Higher tiers pay proportional to their guaranteed-wild boost (each
   // forced wild ~doubles the round's EV).
   const BUY_OPTIONS = [
-    { label: "REGULAR",            sublabel: "",                  cost:  43,  wilds: 0 },
-    { label: "1 WILD",             sublabel: "+2 FS · WILD ×15",  cost:  53,  wilds: 1 },
-    { label: "2 WILDS",            sublabel: "+5 FS · WILD ×25",  cost:  69,  wilds: 2 },
-    { label: "ALL SCATTERS",       sublabel: "+8 FS · WILD ×30",  cost:  92,  wilds: 3, allWilds: true },
+    { label: "REGULAR",            sublabel: "10 FREE SPINS",                 cost:  37,  wilds: 0 },
+    { label: "1 WILD",             sublabel: "12 FS · WILD ×15",              cost:  47,  wilds: 1 },
+    { label: "2 WILDS",            sublabel: "15 FS · WILD ×25 · ×4 MULTS",   cost:  63,  wilds: 2 },
+    { label: "ALL SCATTERS",       sublabel: "18 FS · ALL WILDS ×30 · ×4 MULTS",  cost:  82,  wilds: 3, allWilds: true },
   ];
 
   // ---- cell types -----------------------------------------------------------
@@ -953,6 +953,34 @@
     setTimeout(() => burst.remove(), 600);
   }
 
+  // Concentric red ring that ripples out from a destroyer cell — makes it
+  // unmistakable that the destroyer is unleashing a board-wide effect.
+  function emitDestroyerShockwave(cell) {
+    const p = stageCoords(cell.getBoundingClientRect());
+    for (let i = 0; i < 2; i++) {
+      const ring = document.createElement("div");
+      ring.className = "destroyer-shockwave";
+      ring.style.left = p.x + "px";
+      ring.style.top  = p.y + "px";
+      ring.style.animationDelay = (i * 140) + "ms";
+      stage.appendChild(ring);
+      setTimeout(() => ring.remove(), 1000 + i * 140);
+    }
+  }
+
+  // "DESTROYER · -N SYMBOLS" badge over the destroyer cell so the player
+  // gets a literal explanation of what just happened, not just sparks.
+  function showDestroyerLabel(cell, killCount) {
+    const p = stageCoords(cell.getBoundingClientRect());
+    const el = document.createElement("div");
+    el.className = "destroyer-label";
+    el.style.left = p.x + "px";
+    el.style.top  = p.y + "px";
+    el.innerHTML = `DESTROYER<span class="dl-count">−${killCount} low symbol${killCount === 1 ? "" : "s"}</span>`;
+    stage.appendChild(el);
+    setTimeout(() => el.remove(), 1400);
+  }
+
   // Convert a viewport rect into stage-local coords (un-scaled)
   function stageCoords(rect) {
     const sr = stage.getBoundingClientRect();
@@ -1449,14 +1477,47 @@
           paintAll();
         }
         if (d.destroyers.length) {
-          for (const [r, c] of (d.destroyerKilled || [])) {
-            emitSparks(cellAt(r, c), 5, "red");
+          const killed = d.destroyerKilled || [];
+          // Phase A: light up the destroyer cell + show literal "DESTROYER -N"
+          // badge + emit a shockwave ring. Holds long enough for the player
+          // to read what's about to happen.
+          for (const [r, c] of d.destroyers) {
+            const cell = cellAt(r, c);
+            cell.classList.add("destroyer-active");
+            showDestroyerLabel(cell, killed.length);
+            emitDestroyerShockwave(cell);
           }
-          await ffWait(420);
-          for (const [r, c] of (d.destroyerKilled || [])) state.grid[r][c] = null;
-          for (const [r, c] of d.destroyers)             state.grid[r][c] = null;
+          // Stage shake reinforces the impact across the whole board.
+          const wrap = document.getElementById("stage-wrap");
+          if (wrap) {
+            wrap.classList.remove("shake");
+            void wrap.offsetWidth;
+            wrap.classList.add("shake");
+            setTimeout(() => wrap.classList.remove("shake"), 450);
+          }
+          await ffWait(550);
+
+          // Phase B: each victim cell shakes + flares + dissolves. Driven
+          // by the .destroying CSS keyframes (0.7s). Sparks add grit.
+          for (const [r, c] of killed) {
+            const cell = cellAt(r, c);
+            cell.classList.add("destroying");
+            emitSparks(cell, 10, "red");
+          }
+          await ffWait(700);
+
+          // Phase C: clean up — destroy victims, remove destroyer itself,
+          // strip animation classes.
+          for (const [r, c] of killed) {
+            state.grid[r][c] = null;
+            cellAt(r, c).classList.remove("destroying");
+          }
+          for (const [r, c] of d.destroyers) {
+            state.grid[r][c] = null;
+            cellAt(r, c).classList.remove("destroyer-active");
+          }
           paintAll();
-          await ffWait(200);
+          await ffWait(220);
         }
       }
 
@@ -1962,24 +2023,129 @@
   }
 
   async function endFreeSpins() {
-    state.balance += state.freeSpinsWin;
+    const totalWin = state.freeSpinsWin;
+    state.balance += totalWin;
     refreshHUD();
-    winBannerText.textContent = `BONUS WIN ${fmt(state.freeSpinsWin)} ETH`;
-    winBanner.classList.add("visible");
-    await ffWait(2200);
-    winBanner.classList.remove("visible");
+    playSfx("fsEnd");
+    if (window.__xibalbaAudio) window.__xibalbaAudio.startBgm("base");
+    // Grand celebration overlay — count-up + tiered title + confetti.
+    await showFsEndCelebration(totalWin, state.bet);
     state.inFreeSpins = false;
     state.freeSpinsLeft = 0;
     state.freeSpinsTotal = 0;
     state.freeSpinsWin = 0;
-    // Restore base slot frame + base BGM
     stage.classList.remove("fs-active");
-    playSfx("fsEnd");
-    if (window.__xibalbaAudio) window.__xibalbaAudio.startBgm("base");
     refreshFSBanner(); refreshBonusActive();
-    // Clear multipliers between rounds
     state.cellMult = makeEmptyGrid(false);
     paintAll();
+  }
+
+  // Big celebration screen at the end of a Free Spins round.
+  //   - Tier classes (win / big / huge / epic / legendary) drive title size,
+  //     palette, and animation intensity.
+  //   - Number counts up from 0 to total over ~2.5s with easeOutCubic.
+  //   - Confetti density scales with tier.
+  //   - Stays until the user clicks/taps anywhere on the overlay (with a
+  //     ~1s grace so a misplaced click doesn't skip it).
+  function tierForFsEnd(winX) {
+    if (winX >= 1000) return "legendary";
+    if (winX >= 200)  return "epic";
+    if (winX >= 50)   return "huge";
+    if (winX >= 10)   return "big";
+    return "win";
+  }
+  function titleForTier(tier) {
+    return {
+      win:       "FREE SPINS COMPLETE",
+      big:       "BIG BONUS WIN!",
+      huge:      "HUGE BONUS WIN!",
+      epic:      "EPIC BONUS WIN!",
+      legendary: "LEGENDARY WIN!!!",
+    }[tier];
+  }
+  function spawnFsEndConfetti(panel, density) {
+    const rect = panel.getBoundingClientRect();
+    const w = rect.width, h = rect.height;
+    const colors = ["#ffd966", "#ff9b30", "#ff5e2c", "#d6286b", "#5e2eb2", "#2eb2d6"];
+    for (let i = 0; i < density; i++) {
+      const c = document.createElement("div");
+      c.className = "fs-end-confetti";
+      c.style.left = (Math.random() * w) + "px";
+      c.style.top  = (-20 - Math.random() * 80) + "px";
+      c.style.background = colors[Math.floor(Math.random() * colors.length)];
+      panel.appendChild(c);
+      const driftX = (Math.random() - 0.5) * 240;
+      const fallY  = h + 60 + Math.random() * 120;
+      const rot    = (Math.random() - 0.5) * 1080;
+      const dur    = 1800 + Math.random() * 1600;
+      c.animate(
+        [
+          { transform: `translate(0, 0) rotate(0deg)`, opacity: 1 },
+          { transform: `translate(${driftX}px, ${fallY}px) rotate(${rot}deg)`, opacity: 0 },
+        ],
+        { duration: dur, easing: "cubic-bezier(0.35, 0.05, 0.55, 0.95)", fill: "forwards", delay: Math.random() * 400 }
+      );
+      setTimeout(() => c.remove(), dur + 500);
+    }
+  }
+  function showFsEndCelebration(totalWin, bet) {
+    return new Promise((resolve) => {
+      const modal = document.getElementById("fsEndModal");
+      const panel = modal.querySelector(".fs-end-panel");
+      const titleEl = document.getElementById("fsEndTitle");
+      const amountEl = document.getElementById("fsEndAmount");
+      const multEl   = document.getElementById("fsEndMult");
+
+      const winX = bet > 0 ? totalWin / bet : 0;
+      const tier = tierForFsEnd(winX);
+      panel.classList.remove("tier-win", "tier-big", "tier-huge", "tier-epic", "tier-legendary");
+      panel.classList.add(`tier-${tier}`);
+      titleEl.textContent = titleForTier(tier);
+      multEl.textContent  = `×${winX.toFixed(2)} BET`;
+      amountEl.textContent = "0.00";
+
+      modal.classList.add("visible");
+      modal.setAttribute("aria-hidden", "false");
+
+      // Confetti density scales with the tier
+      const density = { win: 24, big: 48, huge: 80, epic: 140, legendary: 220 }[tier];
+      spawnFsEndConfetti(panel, density);
+
+      // Count-up: easeOutCubic over 2.5s. Tier-legendary takes a beat longer.
+      const dur = tier === "legendary" ? 3200 : 2400;
+      const t0 = performance.now();
+      function tick(now) {
+        const t = Math.min(1, (now - t0) / dur);
+        const eased = 1 - Math.pow(1 - t, 3);
+        amountEl.textContent = (totalWin * eased).toFixed(2);
+        if (t < 1) requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+
+      // Grace period before accepting input so a stray click doesn't skip
+      const armedAt = performance.now();
+      const GRACE = 900;
+      const onDismiss = () => {
+        if (performance.now() - armedAt < GRACE) return;
+        modal.classList.remove("visible");
+        modal.setAttribute("aria-hidden", "true");
+        modal.removeEventListener("click", onDismiss);
+        document.removeEventListener("keydown", onKey);
+        amountEl.textContent = totalWin.toFixed(2);  // ensure final number is exact
+        resolve();
+      };
+      const onKey = (e) => {
+        if (e.key === "Shift" || e.key === "Control" || e.key === "Alt" || e.key === "Meta") return;
+        e.preventDefault();
+        onDismiss();
+      };
+      modal.addEventListener("click", onDismiss);
+      document.addEventListener("keydown", onKey);
+
+      // Auto-dismiss after a long wait (longer than the count-up) so it
+      // never strands the player if they walk away.
+      setTimeout(() => onDismiss(), dur + 5000);
+    });
   }
 
   // ---- HUD flash -------------------------------------------------------------
