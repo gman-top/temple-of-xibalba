@@ -274,8 +274,9 @@
   }
 
   // Probabilities for special symbols on initial fill / cascade fill.
-  // Base-game value calibrated by sim.js to land FS triggers at 1/208 spins.
-  const SCATTER_FILL_PROB    = 0.0328; // base-game spawn rate per cell (capped 1/reel)
+  // Must match engine.js (server source of truth) — used only by the offline
+  // fallback path. Calibrated to land FS triggers at ~1/208 spins.
+  const SCATTER_FILL_PROB    = 0.0339; // base-game spawn rate per cell (capped 1/reel)
   const SCATTER_FILL_PROB_FS = 0.004;  // ~8× rarer during free spins to prevent runaway retriggers
 
   // Dig-up probabilities (per cleared cell, after a cluster pop, before refill)

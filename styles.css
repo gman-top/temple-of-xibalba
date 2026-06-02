@@ -1473,12 +1473,14 @@ button:active img {
 /* Buy FS modal — wide enough for 4 cards in 2x2 with comfortable spacing.
    No stone-tablet wrapper (BGaming reference uses a clean dark backdrop). */
 .bb-modal {
-  width: 980px;
+  width: min(980px, 92vw);
   max-width: 980px;
   min-height: auto;
-  max-height: none;
+  max-height: 96vh;
+  overflow-y: auto;
   padding: 30px 40px 30px;
   background: transparent;
+  box-sizing: border-box;
 }
 .bb-title {
   font-size: 38px;
