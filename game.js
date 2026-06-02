@@ -267,44 +267,7 @@
     [0.032, 0.047, 0.068, 0.103, 0.149,  0.234,  0.372,  0.639],  // 8 symbol09
   ];
 
-  function payForCluster(symIdx, size) {
-    const row = PAY_TABLE[symIdx];
-    const i = Math.min(Math.max(size - 5, 0), row.length - 1);
-    return row[i];
-  }
-
-  // Probabilities for special symbols on initial fill / cascade fill.
-  // Must match engine.js (server source of truth) — used only by the offline
-  // fallback path. Calibrated to land FS triggers at ~1/208 spins.
-  const SCATTER_FILL_PROB    = 0.0339; // base-game spawn rate per cell (capped 1/reel)
-  const SCATTER_FILL_PROB_FS = 0.004;  // ~8× rarer during free spins to prevent runaway retriggers
-
-  // Dig-up probabilities (per cleared cell, after a cluster pop, before refill)
-  const DIG = {
-    wild: 0.06,
-    booster: 0.03,
-    destroyer: 0.025,
-    scatter: 0.02,
-  };
-
   const BET_LEVELS = [0.20, 0.50, 1.00, 2.00, 5.00, 10.00, 25.00, 50.00];
-
-  function freeSpinsForScatters(n, isRetrigger) {
-    // Retriggers award FEWER spins than the initial trigger so a streak of
-    // lucky scatter spawns can't keep the round running forever.
-    if (isRetrigger) {
-      if (n >= 6) return 10;
-      if (n >= 5) return 8;
-      if (n >= 4) return 6;
-      if (n >= 3) return 5;
-      return 0;
-    }
-    if (n >= 6) return 20;
-    if (n >= 5) return 15;
-    if (n >= 4) return 12;
-    if (n >= 3) return 10;
-    return 0;
-  }
 
   // Buy Free Spins ratios calibrated by sim.js. Avg FS payout ≈ 19× per
   // trigger → REGULAR at 20× is ~95% RTP buy (typical premium ratio).
@@ -323,16 +286,14 @@
   const TY = { REG: "reg", SCAT: "scatter", WILD: "wild", BOOST: "booster", DEST: "destroyer" };
 
   // ---- provably-fair backend integration ----------------------------------
-  // SERVER_MODE: when true, every spin/buy-bonus is sent to the server and
-  // the returned outcome is replayed locally. Outcomes are deterministic
-  // from (serverSeed, clientSeed, nonce) so the player can verify any past
-  // spin independently. When the API can't be reached we fall back to the
-  // local Math.random path so the game remains playable offline.
+  // Every spin/buy-bonus is sent to the server and the returned outcome is
+  // replayed locally. Outcomes are deterministic from (serverSeed, clientSeed,
+  // nonce) so the player can verify any past spin independently. If the API
+  // is unreachable SESSION stays null and action handlers flash an error.
   const API_BASE = (typeof window !== "undefined"
     && (window.location.protocol === "http:" || window.location.protocol === "https:"))
     ? `${window.location.protocol}//${window.location.host}`
     : "http://localhost:3000";
-  let SERVER_MODE = false;             // flipped on after ensureSession() succeeds
   let SESSION = null;                  // { id, serverSeedHash, clientSeed, nonce, balance, bet, betIdx, buyBonusIdx }
   const LS_KEY = "xibalba_session_id";
 
@@ -356,16 +317,14 @@
   async function ensureSession() {
     const cached = (typeof localStorage !== "undefined") ? localStorage.getItem(LS_KEY) : null;
     if (cached) {
-      try { SESSION = await api(`/session/${cached}`); SERVER_MODE = true; return; }
+      try { SESSION = await api(`/session/${cached}`); return; }
       catch (_) { /* expired or server down — fall through */ }
     }
     try {
       SESSION = await api(`/session`, { method: "POST", body: {} });
       if (typeof localStorage !== "undefined") localStorage.setItem(LS_KEY, SESSION.id);
-      SERVER_MODE = true;
     } catch (_) {
-      SERVER_MODE = false;   // offline / standalone demo mode
-      console.warn("[xibalba] backend unreachable, running standalone demo mode");
+      console.warn("[xibalba] backend unreachable; spins will be blocked until it returns");
     }
   }
 
@@ -393,10 +352,8 @@
     freeSpinsLeft: 0,
     freeSpinsTotal: 0,
     freeSpinsWin: 0,
-    guaranteedWilds: 0,    // wilds to force dig-up at start of next spin
     wildSpinArmed: false,
     recentWins: [],        // {size, symIdx, mult, amount}
-    pendingBuyTrigger: null,
   };
 
   // ---- DOM refs --------------------------------------------------------------
@@ -481,16 +438,9 @@
 
   function randomGrid() {
     const g = makeEmptyGrid();
-    const scattersPerCol = new Array(COLS).fill(0);
     for (let c = 0; c < COLS; c++) {
       for (let r = 0; r < ROWS; r++) {
-        const scatProb = state.inFreeSpins ? SCATTER_FILL_PROB_FS : SCATTER_FILL_PROB;
-        if (scattersPerCol[c] === 0 && Math.random() < scatProb) {
-          g[r][c] = { t: TY.SCAT };
-          scattersPerCol[c] = 1;
-        } else {
-          g[r][c] = rndCell();
-        }
+        g[r][c] = rndCell();
       }
     }
     return g;
@@ -617,125 +567,6 @@
   function paintAll() {
     for (let r = 0; r < ROWS; r++)
       for (let c = 0; c < COLS; c++) paintCell(r, c);
-  }
-
-  // ---- cluster detection (wilds substitute) ----------------------------------
-  function findClusters(grid) {
-    const seen = Array.from({ length: ROWS }, () => Array(COLS).fill(false));
-    const clusters = [];
-
-    // Pass 1: seed from regular cells; expand including matching reg + wilds.
-    for (let r = 0; r < ROWS; r++) {
-      for (let c = 0; c < COLS; c++) {
-        if (seen[r][c]) continue;
-        const v = grid[r][c];
-        if (!v || v.t !== TY.REG) continue;
-        const seed = v.i;
-        const cells = [];
-        const wildCells = [];
-        const stack = [[r, c]];
-        const localSeen = new Set();
-        while (stack.length) {
-          const [y, x] = stack.pop();
-          if (y < 0 || y >= ROWS || x < 0 || x >= COLS) continue;
-          const key = y * COLS + x;
-          if (localSeen.has(key)) continue;
-          if (seen[y][x]) continue;
-          const w = grid[y][x];
-          if (!w) continue;
-          if (w.t === TY.REG && w.i === seed) {
-            localSeen.add(key);
-            cells.push([y, x]);
-            stack.push([y + 1, x], [y - 1, x], [y, x + 1], [y, x - 1]);
-          } else if (w.t === TY.WILD) {
-            localSeen.add(key);
-            cells.push([y, x]);
-            wildCells.push([y, x]);
-            stack.push([y + 1, x], [y - 1, x], [y, x + 1], [y, x - 1]);
-          }
-        }
-        if (cells.length >= 5) {
-          for (const [y, x] of cells) seen[y][x] = true;
-          clusters.push({ symIdx: seed, cells, wildCells });
-        }
-      }
-    }
-    return clusters;
-  }
-
-  // ---- cascade ---------------------------------------------------------------
-  function cascade(grid) {
-    // Wilds and scatters STAY in place during cascade (sticky).
-    // Empty cells below them act as if filled from above only for non-sticky.
-    // Implementation: for each column, walk bottom-up, keep wild/scatter rows
-    // in place; collect non-null non-sticky cells; restack regular cells from
-    // the bottom up; fill empties above with new regs (and possibly scatters).
-
-    for (let c = 0; c < COLS; c++) {
-      // Collect non-sticky regulars in column from top to bottom (preserves order)
-      const movable = [];
-      for (let r = 0; r < ROWS; r++) {
-        const v = grid[r][c];
-        if (v && (v.t === TY.REG)) movable.push(v);
-      }
-      // Walk column bottom-up, fill non-sticky cells from movable stack
-      // (stack popped from bottom-of-original = last pushed = bottom-most reg)
-      let mIdx = movable.length - 1;
-      for (let r = ROWS - 1; r >= 0; r--) {
-        const v = grid[r][c];
-        const sticky = v && (v.t === TY.WILD || v.t === TY.SCAT);
-        if (sticky) continue;
-        if (mIdx >= 0) {
-          grid[r][c] = movable[mIdx--];
-        } else {
-          // Fill with new symbol, with small chance of scatter (1/reel cap)
-          const colHasScatter = grid.some((row) => row[c] && row[c].t === TY.SCAT);
-          const scatProb = state.inFreeSpins ? SCATTER_FILL_PROB_FS : SCATTER_FILL_PROB;
-          if (!colHasScatter && Math.random() < scatProb) {
-            grid[r][c] = { t: TY.SCAT };
-          } else {
-            grid[r][c] = rndCell();
-          }
-        }
-      }
-    }
-  }
-
-  // ---- dig-up logic ----------------------------------------------------------
-  // After a cluster pops, before cascade, each empty cell can dig up a special.
-  // Returns { wilds: [[r,c]], boosters: [[r,c]], destroyers: [[r,c]], scatters: [[r,c]] }
-  function digUp(emptyCells, forceWilds = 0) {
-    const result = { wilds: [], boosters: [], destroyers: [], scatters: [] };
-    if (!emptyCells.length) return result;
-
-    // Force `forceWilds` wilds on random empty cells first
-    const pool = [...emptyCells];
-    for (let i = pool.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [pool[i], pool[j]] = [pool[j], pool[i]];
-    }
-    const forced = pool.slice(0, Math.min(forceWilds, pool.length));
-    for (const cell of forced) result.wilds.push(cell);
-    const forcedSet = new Set(forced.map(([r, c]) => r * COLS + c));
-
-    for (const [r, c] of emptyCells) {
-      if (forcedSet.has(r * COLS + c)) continue;
-      const roll = Math.random();
-      let acc = 0;
-      acc += DIG.wild;
-      if (roll < acc) { result.wilds.push([r, c]); continue; }
-      acc += DIG.booster;
-      if (roll < acc) { result.boosters.push([r, c]); continue; }
-      acc += DIG.destroyer;
-      if (roll < acc) { result.destroyers.push([r, c]); continue; }
-      acc += DIG.scatter;
-      if (roll < acc) {
-        // Respect 1-scatter-per-reel rule
-        const colHasScatter = state.grid.some((row) => row[c] && row[c].t === TY.SCAT);
-        if (!colHasScatter) result.scatters.push([r, c]);
-      }
-    }
-    return result;
   }
 
   // ---- HUD / paytable --------------------------------------------------------
@@ -1369,92 +1200,6 @@
     }
   }
 
-  async function animateCascade() {
-    cascade(state.grid);
-    for (const cell of allCells()) cell.classList.add("dropping");
-    paintAll();
-    await ffWait(330);
-    for (const cell of allCells()) cell.classList.remove("dropping");
-  }
-
-  // ---- dig-up application ----------------------------------------------------
-  async function applyDigUp(emptyCells) {
-    const forced = state.guaranteedWilds;
-    state.guaranteedWilds = 0;
-    const result = digUp(emptyCells, forced);
-
-    if (!result.wilds.length && !result.boosters.length && !result.destroyers.length && !result.scatters.length) {
-      return { destroyed: [] };
-    }
-
-    // Set grid types + matching audio cue
-    if (result.wilds.length)    playSfx("wildDig");
-    if (result.scatters.length) playSfx("scatter");
-    for (const [r, c] of result.wilds) {
-      state.grid[r][c] = { t: TY.WILD, m: state.cellMult[r][c] >= 2 ? 100 : 10 };
-    }
-    for (const [r, c] of result.boosters) {
-      state.grid[r][c] = { t: TY.BOOST };
-    }
-    for (const [r, c] of result.destroyers) {
-      state.grid[r][c] = { t: TY.DEST };
-    }
-    for (const [r, c] of result.scatters) {
-      state.grid[r][c] = { t: TY.SCAT };
-    }
-
-    paintAll();
-    // Burst effect on each dug-up cell
-    for (const arr of [result.wilds, result.boosters, result.destroyers, result.scatters]) {
-      for (const [r, c] of arr) digBurst(cellAt(r, c));
-    }
-    await ffWait(450);
-
-    // Apply booster effect: upgrade all cell multipliers +2 (capped at 10)
-    let destroyed = [];
-    if (result.boosters.length) {
-      let bumped = 0;
-      for (let r = 0; r < ROWS; r++) {
-        for (let c = 0; c < COLS; c++) {
-          if (state.cellMult[r][c] > 0 && state.cellMult[r][c] < 10) {
-            state.cellMult[r][c] = Math.min(10, state.cellMult[r][c] + 2);
-            bumped++;
-          }
-        }
-      }
-      // Boosters consumed — return their cells to empty
-      for (const [r, c] of result.boosters) {
-        state.grid[r][c] = null;
-        emitSparks(cellAt(r, c), 8, "green");
-      }
-      if (bumped > 0) await ffWait(350);
-      paintAll();
-    }
-
-    // Apply destroyer: remove all low-tier symbols (idx 5,6,7) without pay
-    if (result.destroyers.length) {
-      for (let r = 0; r < ROWS; r++) {
-        for (let c = 0; c < COLS; c++) {
-          const v = state.grid[r][c];
-          if (v && v.t === TY.REG && v.i >= 5) {
-            destroyed.push([r, c]);
-            const cell = cellAt(r, c);
-            emitSparks(cell, 4, "red");
-          }
-        }
-      }
-      await ffWait(300);
-      for (const [r, c] of destroyed) state.grid[r][c] = null;
-      // Destroyer itself vanishes too
-      for (const [r, c] of result.destroyers) {
-        state.grid[r][c] = null;
-      }
-      paintAll();
-    }
-
-    return { destroyed };
-  }
-
   // ---- core spin loop --------------------------------------------------------
 
   // Replay one engine outcome (from /api/.../spin or /api/.../buy-bonus).
@@ -1758,323 +1503,11 @@
     }
   }
 
-  async function spin({ skipBet = false } = {}) {
+  async function spin() {
     if (state.spinning) return;
-    if (SERVER_MODE && SESSION && !state.inFreeSpins) {
-      // In server mode the entire FS round is bundled into the spin response,
-      // so we never have a standalone "FS continue" call from here.
-      const wildSpinActive = state.wildSpinArmed && !state.inFreeSpins;
-      return spinViaServer({ wildSpinActive });
-    }
-    return spinLocal({ skipBet });
-  }
-
-  async function spinLocal({ skipBet = false } = {}) {
-    if (state.spinning) return;
-
-    const isWildSpin = state.wildSpinArmed && !state.inFreeSpins;
-    let effectiveBet = state.bet;
-    if (isWildSpin) effectiveBet = state.bet * 2;
-
-    if (!skipBet && !state.inFreeSpins) {
-      if (state.balance < effectiveBet) {
-        flashHUD(hudBalance);
-        return;
-      }
-      state.balance -= effectiveBet;
-    }
-
-    state.spinning = true;
-    btnSpin.disabled = true;
-    btnSpin.classList.add("spinning");
-    state.lastWin = 0;
-    state.totalSpinWin = 0;
-    hideSpinWinPopup();   // clear previous spin's popup before next reel-in
-    // Recent wins persist across spins — new wins prepend; old wins age out
-    // naturally via the 8-row cap.
-    refreshHUD();
-
-    // Hoisted so the FS-trigger branch (below the try) can read the value
-    // set inside the cascade loop without a scope error.
-    let scatterCount = 0;
-
-    // Safety net: if anything below throws, the unhandled error used to
-    // leave state.spinning=true forever — button visually spun but every
-    // subsequent click bounced off the early-return guard. The try/finally
-    // guarantees release.
-    try {
-
-    // Reset multipliers per spin (unless in FS)
-    if (!state.inFreeSpins) {
-      state.cellMult = makeEmptyGrid(false);
-    }
-    // Wild Spin mode AND every FS spin guarantee at least 1 wild dig-up.
-    // The FS guarantee is the engine of the "premium FS feel" — combined
-    // with cellMult persistence across FS spins it lifts FS share of RTP
-    // from ~9% to ~18% (see sim.js verification).
-    if (isWildSpin || state.inFreeSpins) state.guaranteedWilds = 1;
-
-    playSfx("spin");
-    await animateSpinIn(randomGrid());
-
-    // Cascade loop
-    let cascades = 0;
-    while (true) {
-      const clusters = findClusters(state.grid);
-      if (!clusters.length) break;
-      // Premium "drank" — heavy impact + cavern echo when a cluster locks
-      // in. Lives here (not on every spin landing) so the player only
-      // hears it as a REWARD signal: "your spin paid off."
-      playSfx("spinLand");
-      playSfx("clusterPop");
-
-      let stepWin = 0;
-      const allCells = [];
-      const wildCellsInRound = new Set();
-      const winInfo = [];
-
-      for (const cl of clusters) {
-        let multSum = 0;
-        for (const [r, c] of cl.cells) {
-          if (state.cellMult[r][c] > 0) multSum += state.cellMult[r][c];
-        }
-        for (const [r, c] of cl.wildCells) {
-          const w = state.grid[r][c];
-          if (w && w.t === TY.WILD) multSum += w.m;
-          wildCellsInRound.add(`${r},${c}`);
-        }
-        const base = payForCluster(cl.symIdx, cl.cells.length) * effectiveBet;
-        const finalMult = Math.max(1, multSum);
-        const win = +(base * finalMult).toFixed(2);
-        stepWin += win;
-        const payMult = +(base * finalMult / effectiveBet).toFixed(2);
-        winInfo.push({
-          cells: cl.cells,
-          symIdx: cl.symIdx,
-          size: cl.cells.length,
-          payMult,
-          amount: win,
-        });
-        allCells.push(...cl.cells);
-      }
-      state.totalSpinWin += stepWin;
-      state.lastWin = state.totalSpinWin;
-      refreshHUD();
-
-      // Mark winning cells with new multipliers (×2 → ×10)
-      const winningCellKeys = new Set();
-      for (const [r, c] of allCells) {
-        winningCellKeys.add(`${r},${c}`);
-      }
-      for (const key of winningCellKeys) {
-        const [r, c] = key.split(",").map(Number);
-        const cur = state.cellMult[r][c];
-        state.cellMult[r][c] = Math.min(10, cur === 0 ? 2 : cur + 2);
-      }
-      // Bump wild multipliers (+10, max 100)
-      for (const key of wildCellsInRound) {
-        const [r, c] = key.split(",").map(Number);
-        const w = state.grid[r][c];
-        if (w && w.t === TY.WILD) w.m = Math.min(100, w.m + 10);
-      }
-
-      await animateMatched(allCells, winInfo);
-
-      // Dig-up on empty cells
-      const empties = [];
-      for (let r = 0; r < ROWS; r++) {
-        for (let c = 0; c < COLS; c++) {
-          if (state.grid[r][c] === null) empties.push([r, c]);
-        }
-      }
-      await applyDigUp(empties);
-
-      await animateCascade();
-      paintAll();
-
-      cascades++;
-      if (cascades > 15) break;
-    }
-
-    // After cascades: count scatters → maybe trigger FS
-    scatterCount = 0;
-    for (let r = 0; r < ROWS; r++) {
-      for (let c = 0; c < COLS; c++) {
-        if (state.grid[r][c] && state.grid[r][c].t === TY.SCAT) scatterCount++;
-      }
-    }
-
-    // Apply winnings
-    if (!state.inFreeSpins) {
-      state.balance += state.totalSpinWin;
-    } else {
-      state.freeSpinsWin += state.totalSpinWin;
-      refreshFSBanner(); refreshBonusActive();
-    }
-    refreshHUD();
-
-    if (state.totalSpinWin > 0) {
-      showSpinWinPopup(state.totalSpinWin);
-      await maybeShowBigWin(state.totalSpinWin, effectiveBet);
-    }
-
-    // Wild spin consumed
-    if (isWildSpin) {
-      state.wildSpinArmed = false;
-      btnWildSpin.setAttribute("aria-pressed", "false");
-    }
-
-    state.spinning = false;
-    btnSpin.disabled = false;
-    btnSpin.classList.remove("spinning");
-
-    } catch (err) {
-      // Anything in the cascade chain blew up — surface the error but
-      // still release the spin lock (handled by the finally below).
-      console.error("spin error:", err);
-    } finally {
-      // Re-assert the unlock so we never leave the button stuck spinning.
-      state.spinning = false;
-      btnSpin.disabled = false;
-      btnSpin.classList.remove("spinning");
-    }
-
-    // FS trigger / continue. Outside the try because these RECURSIVELY call
-    // spin() and the recursion must not be inside the parent's try (it
-    // would await its own descendants and we don't want the finally to
-    // fire while a nested chain is still running).
-    if (scatterCount >= 3) {
-      await triggerOrRetrigger(scatterCount);
-    } else if (state.inFreeSpins) {
-      // Continue FS round
-      state.freeSpinsLeft--;
-      refreshFSBanner(); refreshBonusActive();
-      if (state.freeSpinsLeft > 0) {
-        await ffWait(500);
-        spin({ skipBet: true });
-        return;
-      } else {
-        await endFreeSpins();
-      }
-    } else if (state.autoplayLeft > 0) {
-      state.autoplayLeft--;
-      if (state.autoStopOnFs && scatterCount >= 3) { /* will end on FS anyway */ }
-      if (state.autoplayLeft > 0 && state.balance >= state.bet) {
-        await ffWait(450);
-        spin();
-      } else {
-        state.autoplayLeft = 0;
-        btnAutoplay.classList.remove("active");
-      }
-    }
-  }
-
-  async function triggerOrRetrigger(scatterCount) {
-    const award = freeSpinsForScatters(scatterCount, state.inFreeSpins);
-    if (!state.inFreeSpins) {
-      // Trigger: convert scatters to wilds or ×10 multipliers
-      let convertedWilds = 0;
-      const wildsToForce = state.pendingBuyTrigger ? state.pendingBuyTrigger.wilds : 0;
-      const allWilds = state.pendingBuyTrigger ? state.pendingBuyTrigger.allWilds : false;
-      state.pendingBuyTrigger = null;
-
-      const scatterCells = [];
-      for (let r = 0; r < ROWS; r++)
-        for (let c = 0; c < COLS; c++)
-          if (state.grid[r][c] && state.grid[r][c].t === TY.SCAT) scatterCells.push([r, c]);
-
-      // Shuffle
-      for (let i = scatterCells.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [scatterCells[i], scatterCells[j]] = [scatterCells[j], scatterCells[i]];
-      }
-      for (const [r, c] of scatterCells) {
-        if (allWilds || convertedWilds < wildsToForce || Math.random() < 0.5) {
-          state.grid[r][c] = { t: TY.WILD, m: 10 };
-          convertedWilds++;
-        } else {
-          state.grid[r][c] = null;
-          state.cellMult[r][c] = 10;
-        }
-      }
-      paintAll();
-      await ffWait(600);
-
-      state.inFreeSpins = true;
-      state.freeSpinsTotal = award;
-      state.freeSpinsLeft = award;
-      state.freeSpinsWin = 0;
-      // Swap to the FS-themed slot frame (red ember + cyan magical glow)
-      stage.classList.add("fs-active");
-      playSfx("fsTrigger");
-      if (window.__xibalbaAudio) window.__xibalbaAudio.startBgm("fs");
-      refreshFSBanner(); refreshBonusActive();
-
-      // Announcement modal: shows the count (with the +5/+3/+2 retrigger info),
-      // pauses on "CLICK TO CONTINUE" to give the trigger weight.
-      await showFsTriggerModal(award);
-
-      // Cascade once more (wilds may form clusters now)
-      let cs = 0;
-      while (true) {
-        const clusters = findClusters(state.grid);
-        if (!clusters.length) break;
-        let stepWin = 0;
-        const allCells = [];
-        const winInfo = [];
-        for (const cl of clusters) {
-          let multSum = 0;
-          for (const [r, c] of cl.cells) if (state.cellMult[r][c] > 0) multSum += state.cellMult[r][c];
-          for (const [r, c] of cl.wildCells) {
-            const w = state.grid[r][c];
-            if (w && w.t === TY.WILD) multSum += w.m;
-          }
-          const base = payForCluster(cl.symIdx, cl.cells.length) * state.bet;
-          const win = +(base * Math.max(1, multSum)).toFixed(2);
-          stepWin += win;
-          winInfo.push({
-            cells: cl.cells,
-            symIdx: cl.symIdx,
-            size: cl.cells.length,
-            payMult: +(base * Math.max(1, multSum) / state.bet).toFixed(2),
-            amount: win,
-          });
-          allCells.push(...cl.cells);
-        }
-        state.freeSpinsWin += stepWin;
-        refreshFSBanner(); refreshBonusActive();
-        for (const [r, c] of allCells) {
-          const cur = state.cellMult[r][c];
-          state.cellMult[r][c] = Math.min(10, cur === 0 ? 2 : cur + 2);
-        }
-        await animateMatched(allCells, winInfo);
-        await animateCascade();
-        paintAll();
-        cs++;
-        if (cs > 20) break;
-      }
-
-      // Start first FS spin
-      await ffWait(400);
-      spin({ skipBet: true });
-    } else {
-      // Retrigger: add spins
-      state.freeSpinsLeft += award;
-      state.freeSpinsTotal += award;
-      refreshFSBanner(); refreshBonusActive();
-      winBannerText.textContent = `+${award} FREE SPINS`;
-      winBanner.classList.add("visible");
-      await ffWait(1400);
-      winBanner.classList.remove("visible");
-      // Continue
-      state.freeSpinsLeft--;
-      if (state.freeSpinsLeft > 0) {
-        await ffWait(400);
-        spin({ skipBet: true });
-      } else {
-        await endFreeSpins();
-      }
-    }
+    if (!SESSION) { flashHUD(hudBalance); return; }
+    const wildSpinActive = state.wildSpinArmed && !state.inFreeSpins;
+    return spinViaServer({ wildSpinActive });
   }
 
   async function endFreeSpins() {
@@ -2256,86 +1689,8 @@
 
   async function buyBonus(opt) {
     if (state.spinning) return;
-    if (SERVER_MODE && SESSION) return buyBonusViaServer(opt);
-    closeModal(bbConfirmModal);
-    closeModal(buyBonusModal);
-    const cost = opt.cost * state.bet;
-    if (state.balance < cost) { flashHUD(hudBalance); return; }
-    state.balance -= cost;
-    refreshHUD();
-    state.pendingBuyTrigger = { wilds: opt.wilds, allWilds: !!opt.allWilds };
-    await triggerBuyBonusSpin(opt);
-  }
-
-  async function triggerBuyBonusSpin(opt) {
-    // Generate a grid with 3-6 scatters
-    state.spinning = true;
-    btnSpin.disabled = true;
-    btnSpin.classList.add("spinning");
-    state.lastWin = 0;
-    state.totalSpinWin = 0;
-    state.cellMult = makeEmptyGrid(false);
-
-    const g = randomGrid();
-    // Force scatters: pick random scatter count 3-5, place one per random reel
-    const scatterCount = 3 + Math.floor(Math.random() * 3);
-    const cols = [...Array(COLS).keys()].sort(() => Math.random() - 0.5).slice(0, scatterCount);
-    // Clear any existing scatters first
-    for (let r = 0; r < ROWS; r++)
-      for (let c = 0; c < COLS; c++)
-        if (g[r][c] && g[r][c].t === TY.SCAT) g[r][c] = rndCell();
-    for (const c of cols) {
-      const r = Math.floor(Math.random() * ROWS);
-      g[r][c] = { t: TY.SCAT };
-    }
-    await animateSpinIn(g);
-
-    // Run cascades (may already have cluster wins from the random grid)
-    let cs = 0;
-    while (true) {
-      const clusters = findClusters(state.grid);
-      if (!clusters.length) break;
-      let stepWin = 0;
-      const allCells = [];
-      const winInfo = [];
-      for (const cl of clusters) {
-        const base = payForCluster(cl.symIdx, cl.cells.length) * state.bet;
-        const win = +base.toFixed(2);
-        stepWin += win;
-        winInfo.push({
-          cells: cl.cells,
-          symIdx: cl.symIdx,
-          size: cl.cells.length,
-          payMult: +(base / state.bet).toFixed(2),
-          amount: win,
-        });
-        allCells.push(...cl.cells);
-      }
-      state.totalSpinWin += stepWin;
-      state.lastWin = state.totalSpinWin;
-      refreshHUD();
-      for (const [r, c] of allCells) {
-        const cur = state.cellMult[r][c];
-        state.cellMult[r][c] = Math.min(10, cur === 0 ? 2 : cur + 2);
-      }
-      await animateMatched(allCells, winInfo);
-      const empties = [];
-      for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) if (state.grid[r][c] === null) empties.push([r, c]);
-      await applyDigUp(empties);
-      await animateCascade();
-      paintAll();
-      cs++; if (cs > 20) break;
-    }
-    state.balance += state.totalSpinWin;
-    refreshHUD();
-    state.spinning = false;
-    btnSpin.disabled = false;
-    btnSpin.classList.remove("spinning");
-
-    // Count scatters and trigger FS
-    let sc = 0;
-    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) if (state.grid[r][c] && state.grid[r][c].t === TY.SCAT) sc++;
-    if (sc >= 3) await triggerOrRetrigger(sc);
+    if (!SESSION) { flashHUD(hudBalance); return; }
+    return buyBonusViaServer(opt);
   }
 
   // ---- buttons --------------------------------------------------------------
@@ -2521,7 +1876,7 @@
   });
 
   function syncBetToServer() {
-    if (!SERVER_MODE || !SESSION) return;
+    if (!SESSION) return;
     api(`/session/${SESSION.id}/bet`, { method: "POST", body: { betIdx: state.betIdx } }).catch(() => {});
   }
   betUp.addEventListener("click", () => {
@@ -2567,7 +1922,7 @@
   // Kick off provably-fair session in the background. When it returns we
   // adopt the server's balance/bet/nonce so subsequent spins are auditable.
   ensureSession().then(() => {
-    if (SERVER_MODE && SESSION) {
+    if (SESSION) {
       state.balance = SESSION.balance;
       state.bet = SESSION.bet;
       state.betIdx = SESSION.betIdx;
